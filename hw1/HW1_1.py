@@ -44,7 +44,6 @@ def convolve(input_image, Kernel):
                 result = (padded_img[x:x+kernel_size, y:y+kernel_size, c] * Kernel).sum()
                 res[x, y, c] = result
 
-    print(res.shape)
     return res
 
 def median_filter(input_image, size):
@@ -59,9 +58,19 @@ def median_filter(input_image, size):
         if s % 2 == 0:
             raise Exception("size must be odd for median filter")
 
-    # Your code
-    return
+    kernel_size = size[0]
+    padded_img = reflect_padding(input_image, size)
 
+    res = np.empty((padded_img.shape[0] - kernel_size + 1, padded_img.shape[1] - kernel_size + 1, padded_img.shape[2]))
+
+    for c in range(padded_img.shape[2]):
+        for y in range(padded_img.shape[1] - kernel_size):
+            for x in range(padded_img.shape[0] - kernel_size):
+                result = np.median(padded_img[x:x + kernel_size, y:y + kernel_size, c])
+                res[x, y, c] = result
+
+    print('median filter size: ', res.shape)
+    return res
 
 def gaussian_filter(input_image, size, sigmax, sigmay):
     """
@@ -78,9 +87,9 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
 
 
 if __name__ == '__main__':
-    image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
+    # image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
     #image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
-    #image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
+    image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
 
     logdir = os.path.join('results', 'HW1_1')
     if not os.path.exists(logdir):
