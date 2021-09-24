@@ -33,21 +33,14 @@ def convolve(input_image, Kernel):
     Return:
         convolved image (numpy array)
     """
-
-    # Your code
-    # Note that the dimension of the input_image and the Kernel are different.
-    # shape of input_image: (height, width, channel)
-    # shape of Kernel: (height, width)
-    # Make sure that the same Kernel be applied to each of the channels of the input_image
-    kernel_size = Kernel.shape[0]
     padded_img = reflect_padding(input_image, Kernel.shape)
 
-    res = np.empty((padded_img.shape[0] - kernel_size + 1, padded_img.shape[1] - kernel_size + 1, padded_img.shape[2]))
+    res = np.empty((padded_img.shape[0] - Kernel.shape[0]+1, padded_img.shape[1] - Kernel.shape[1]+1, padded_img.shape[2]))
 
     for c in range(padded_img.shape[2]):
-        for y in range(padded_img.shape[1] - kernel_size):
-            for x in range(padded_img.shape[0] - kernel_size):
-                result = (padded_img[x:x+kernel_size, y:y+kernel_size, c] * Kernel).sum()
+        for y in range(padded_img.shape[1] - Kernel.shape[1]):
+            for x in range(padded_img.shape[0] - Kernel.shape[0]):
+                result = (padded_img[x:x+Kernel.shape[0], y:y+Kernel.shape[1], c] * np.flip(Kernel)).sum()
                 res[x, y, c] = result
 
     return res
@@ -124,7 +117,6 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
     Return:
         Gaussian filtered image (numpy array)
     """
-    # Your code
     kernel_size = size[0]
     padded_img = reflect_padding(input_image, size)
 
@@ -141,8 +133,8 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
 
 if __name__ == '__main__':
     # image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
-    image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
-    # image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
+    # image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
+    image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
 
     logdir = os.path.join('results', 'HW1_1')
     if not os.path.exists(logdir):
