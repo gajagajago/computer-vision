@@ -23,9 +23,6 @@ def gaussian_pyramid(input_image, level):
         g = utils.down_sampling(g)
         pyramid.append(g)
 
-    print("Gaussian\n")
-    for lv in pyramid:
-        print("shape: ", lv.shape, "\n")
     return pyramid
 
 
@@ -43,10 +40,6 @@ def laplacian_pyramid(gaussian_pyramid):
         dog = utils.safe_subtract(gaussian_pyramid[lv], utils.up_sampling(gaussian_pyramid[lv+1]))
         pyramid.append(dog)
     pyramid.append(gaussian_pyramid[-1])
-
-    print("Laplacian\n")
-    for lv in pyramid:
-        print("shape: ", lv.shape, "\n")
 
     return pyramid
 
@@ -67,7 +60,7 @@ def blend_images(image1, image2, mask, level):
 
     ls = []
     for i in range(len(la)):
-        ls.append((1-gr[i])*la[i] + gr[i]*lb[i])
+        ls.append((1-gr[i]/255)*la[i] + gr[i]/255*lb[i])
 
     for lv in range(len(ls)-1, 0, -1):
         ls[lv-1] = utils.safe_add(ls[lv-1], utils.up_sampling(ls[lv]))
@@ -85,11 +78,11 @@ if __name__ == '__main__':
 
     level = 3
 
-    # plt.figure()
-    # plt.imshow(Image.open(os.path.join('images', 'direct_concat.jpeg')))
-    # plt.axis('off')
-    # plt.savefig(os.path.join(logdir, 'direct.jpeg'))
-    # plt.show()
+    plt.figure()
+    plt.imshow(Image.open(os.path.join('images', 'direct_concat.jpeg')))
+    plt.axis('off')
+    plt.savefig(os.path.join(logdir, 'direct.jpeg'))
+    plt.show()
 
     ret = gaussian_pyramid(hand, level)
     if ret is not None:
