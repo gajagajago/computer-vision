@@ -15,10 +15,15 @@ def gaussian_pyramid(input_image, level):
     Return:
         Gaussian pyramid (list of numpy array)
     """
+    pyramid = []
+    g = input_image.copy()
+    pyramid.append(g)
 
-    # Your code
-    # Note that elements in the list must be arranged in descending order in image resolution (from big image to small image).
-    return
+    for lv in range(level):
+        g = utils.down_sampling(g)
+        pyramid.append(g)
+
+    return pyramid
 
 
 def laplacian_pyramid(gaussian_pyramid):
@@ -29,10 +34,14 @@ def laplacian_pyramid(gaussian_pyramid):
     Return:
         laplacian pyramid (list of numpy array)
     """
+    pyramid = []
 
-    # Your code
-    # Note that elements in the list must be arranged in descending order in image resolution (from big image to small image).
-    return
+    for lv in range(len(gaussian_pyramid)-1):
+        dog = utils.safe_subtract(gaussian_pyramid[lv], utils.up_sampling(gaussian_pyramid[lv+1]))
+        pyramid.append(dog)
+    pyramid.append(gaussian_pyramid[-1])
+
+    return pyramid
 
 def blend_images(image1, image2, mask, level):
     """
@@ -59,12 +68,11 @@ if __name__ == '__main__':
 
     level = 3
 
-
-    plt.figure()
-    plt.imshow(Image.open(os.path.join('images', 'direct_concat.jpeg')))
-    plt.axis('off')
-    plt.savefig(os.path.join(logdir, 'direct.jpeg'))
-    plt.show()
+    # plt.figure()
+    # plt.imshow(Image.open(os.path.join('images', 'direct_concat.jpeg')))
+    # plt.axis('off')
+    # plt.savefig(os.path.join(logdir, 'direct.jpeg'))
+    # plt.show()
 
     ret = gaussian_pyramid(hand, level)
     if ret is not None:

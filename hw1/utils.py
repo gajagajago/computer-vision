@@ -4,7 +4,7 @@ import numpy as np
 # You can use functions in this file freely.
 
 def safe_subtract(x1, x2):
-    _ret =  cv2.subtract(x1, x2)
+    _ret = cv2.subtract(x1, x2)
     return _ret
 
 def safe_add(x1, x2):
