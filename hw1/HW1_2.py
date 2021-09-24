@@ -23,6 +23,9 @@ def gaussian_pyramid(input_image, level):
         g = utils.down_sampling(g)
         pyramid.append(g)
 
+    print("Gaussian\n")
+    for lv in pyramid:
+        print("shape: ", lv.shape, "\n")
     return pyramid
 
 
@@ -41,6 +44,10 @@ def laplacian_pyramid(gaussian_pyramid):
         pyramid.append(dog)
     pyramid.append(gaussian_pyramid[-1])
 
+    print("Laplacian\n")
+    for lv in pyramid:
+        print("shape: ", lv.shape, "\n")
+
     return pyramid
 
 def blend_images(image1, image2, mask, level):
@@ -53,9 +60,19 @@ def blend_images(image1, image2, mask, level):
     Return:
         blended image (numpy array)
     """
-    # Your code
-    return
+    la = laplacian_pyramid(gaussian_pyramid(image1, level))
+    lb = laplacian_pyramid(gaussian_pyramid(image2, level))
 
+    gr = gaussian_pyramid(mask, level)
+
+    ls = []
+    for i in range(len(la)):
+        ls.append((1-gr[i])*la[i] + gr[i]*lb[i])
+
+    for lv in range(len(ls)-1, 0, -1):
+        ls[lv-1] = utils.safe_add(ls[lv-1], utils.up_sampling(ls[lv]))
+
+    return ls[0]
 
 if __name__ == '__main__':
     hand = np.asarray(Image.open(os.path.join('images', 'hand.jpeg')).convert('RGB'))
