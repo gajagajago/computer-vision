@@ -101,11 +101,27 @@ def pad_reflect(input_2d, padding):
     return res
 
 def gkern(size, sigmax, sigmay):
-    ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
-    gaussx = np.exp(-0.5 * np.square(ax) / np.square(sigmax))
-    gaussy = np.exp(-0.5 * np.square(ax) / np.square(sigmay))
-    kernel = np.outer(gaussx, gaussy)
-    return kernel / np.sum(kernel)
+    """
+    Args:
+        size: kernel size in tuple
+        sigmax: x sigma
+        sigmay: y sigma
+    Returns:
+        gaussian_kernel
+    """
+    def gauss_seperable(i, sigma):
+        return np.exp(-0.5 * np.square(i) / np.square(sigma))
+
+    rows = np.zeros((size[0], 1))
+    cols = np.zeros((1, size[1]))
+    # const = 1/(2*math.pi*sigmax*sigmay)
+
+    for i in range(size[0]):
+        rows[i][0] = gauss_seperable((i-(size[0]-1)/2), sigmax)
+    for j in range(size[1]):
+        cols[0][j] = gauss_seperable((j-(size[1]-1)/2), sigmay)
+
+    return (rows*cols) / np.sum(rows*cols)
 
 def gaussian_filter(input_image, size, sigmax, sigmay):
     """
@@ -117,15 +133,14 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
     Return:
         Gaussian filtered image (numpy array)
     """
-    kernel_size = size[0]
     padded_img = reflect_padding(input_image, size)
 
-    res = np.empty((padded_img.shape[0] - kernel_size + 1, padded_img.shape[1] - kernel_size + 1, padded_img.shape[2]))
+    res = np.empty((padded_img.shape[0] - size[0] + 1, padded_img.shape[1] - size[1] + 1, padded_img.shape[2]))
 
     for c in range(padded_img.shape[2]):
-        for y in range(padded_img.shape[1] - kernel_size):
-            for x in range(padded_img.shape[0] - kernel_size):
-                result = (padded_img[x:x+kernel_size, y:y+kernel_size, c] * gkern(kernel_size, sigmax, sigmay)).sum()
+        for y in range(padded_img.shape[1] - size[1]):
+            for x in range(padded_img.shape[0] - size[0]):
+                result = (padded_img[x:x+size[0], y:y+size[1], c] * gkern(size, sigmax, sigmay)).sum()
                 res[x, y, c] = result
 
     return res
@@ -133,15 +148,15 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
 
 if __name__ == '__main__':
     # image = np.asarray(Image.open(os.path.join('images', 'baboon.jpeg')).convert('RGB'))
-    # image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
-    image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
+    image = np.asarray(Image.open(os.path.join('images', 'gaussian_noise.jpeg')).convert('RGB'))
+    # image = np.asarray(Image.open(os.path.join('images', 'salt_and_pepper_noise.jpeg')).convert('RGB'))
 
     logdir = os.path.join('results', 'HW1_1')
     if not os.path.exists(logdir):
         os.makedirs(logdir)
 
     kernel_1 = np.ones((5,5)) / 25.
-    sigmax, sigmay = 5, 5
+    sigmax, sigmay = 3, 3
     ret = reflect_padding(image.copy(), kernel_1.shape)
     if ret is not None:
         plt.figure()
@@ -173,5 +188,3 @@ if __name__ == '__main__':
         plt.axis('off')
         plt.savefig(os.path.join(logdir, 'gaussian.jpeg'))
         plt.show()
-
-
