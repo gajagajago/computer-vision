@@ -58,16 +58,16 @@ def blend_images(image1, image2, mask, level):
 
     ls = []
     for i in range(len(la)):
-        normal_mask_weight = gr[i].astype(float)/255
-        ls.append(utils.safe_add((1-normal_mask_weight)*la[i], normal_mask_weight*lb[i]))
+        normal_mask_weight = gr[i]/255.0
+        ls_i = utils.safe_add((1-normal_mask_weight)*la[i], normal_mask_weight*lb[i])
+        ls.append(ls_i)
 
     res = np.zeros(ls[0].shape)
     for lv in range(len(ls)):
         var = ls[lv]
         for i in range(lv):
             var = utils.up_sampling(var)
-
-        res = utils.safe_add(res, var)
+        res = utils.safe_add(res, var).clip(0, 255) # cv2.add returned value > 255 .. why?
 
     return res
 
