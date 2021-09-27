@@ -8,7 +8,7 @@ def reflect_padding(input_image, size):
     """
     Args:
         input_image (numpy array): input array
-        size (tuple of three int [height, width]): filter size (e.g. (3,3))
+        size (tuple of 2 int [height, width]): filter size (e.g. (3,3))
     Return:
         padded image (numpy array)
     """
@@ -35,12 +35,12 @@ def convolve(input_image, Kernel):
     """
     padded_img = reflect_padding(input_image, Kernel.shape)
 
-    res = np.empty((padded_img.shape[0] - Kernel.shape[0]+1, padded_img.shape[1] - Kernel.shape[1]+1, padded_img.shape[2]))
+    res = np.empty((padded_img.shape[0]-Kernel.shape[0]+1, padded_img.shape[1]-Kernel.shape[1]+1, padded_img.shape[2]))
 
     for c in range(padded_img.shape[2]):
         for y in range(padded_img.shape[1] - Kernel.shape[1]):
             for x in range(padded_img.shape[0] - Kernel.shape[0]):
-                result = (padded_img[x:x+Kernel.shape[0], y:y+Kernel.shape[1], c] * np.flip(Kernel)).sum()
+                result = ( padded_img[x:x+Kernel.shape[0], y:y+Kernel.shape[1], c] * np.flip(Kernel) ).sum()
                 res[x, y, c] = result
 
     return res
@@ -57,15 +57,15 @@ def median_filter(input_image, size):
         if s % 2 == 0:
             raise Exception("size must be odd for median filter")
 
-    kernel_size = size[0]
+    kernel_h, kernel_w = size
     padded_img = reflect_padding(input_image, size)
 
-    res = np.empty((padded_img.shape[0] - kernel_size + 1, padded_img.shape[1] - kernel_size + 1, padded_img.shape[2]))
+    res = np.empty((padded_img.shape[0]-kernel_h+1, padded_img.shape[1]-kernel_w+1, padded_img.shape[2]))
 
     for c in range(padded_img.shape[2]):
-        for y in range(padded_img.shape[1] - kernel_size):
-            for x in range(padded_img.shape[0] - kernel_size):
-                result = np.median(padded_img[x:x + kernel_size, y:y + kernel_size, c])
+        for y in range(padded_img.shape[1] - kernel_w):
+            for x in range(padded_img.shape[0] - kernel_h):
+                result = np.median(padded_img[x:x+kernel_h, y:y+kernel_w, c])
                 res[x, y, c] = result
 
     return res
@@ -114,7 +114,6 @@ def gkern(size, sigmax, sigmay):
 
     rows = np.zeros((size[0], 1))
     cols = np.zeros((1, size[1]))
-    # const = 1/(2*math.pi*sigmax*sigmay)
 
     for i in range(size[0]):
         rows[i][0] = gauss_seperable((i-(size[0]-1)/2), sigmax)
@@ -134,13 +133,14 @@ def gaussian_filter(input_image, size, sigmax, sigmay):
         Gaussian filtered image (numpy array)
     """
     padded_img = reflect_padding(input_image, size)
+    kernel_h, kernel_w = size
 
-    res = np.empty((padded_img.shape[0] - size[0] + 1, padded_img.shape[1] - size[1] + 1, padded_img.shape[2]))
+    res = np.empty((padded_img.shape[0]-kernel_h+1, padded_img.shape[1]-kernel_w+1, padded_img.shape[2]))
 
     for c in range(padded_img.shape[2]):
-        for y in range(padded_img.shape[1] - size[1]):
-            for x in range(padded_img.shape[0] - size[0]):
-                result = (padded_img[x:x+size[0], y:y+size[1], c] * gkern(size, sigmax, sigmay)).sum()
+        for y in range(padded_img.shape[1]-kernel_w):
+            for x in range(padded_img.shape[0]-kernel_h):
+                result = ( padded_img[x:x+kernel_h, y:y+kernel_w, c] * gkern(size, sigmax, sigmay) ).sum()
                 res[x, y, c] = result
 
     return res
