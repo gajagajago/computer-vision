@@ -25,7 +25,6 @@ def gaussian_pyramid(input_image, level):
 
     return pyramid
 
-
 def laplacian_pyramid(gaussian_pyramid):
     """
     Args:
@@ -55,17 +54,22 @@ def blend_images(image1, image2, mask, level):
     """
     la = laplacian_pyramid(gaussian_pyramid(image1, level))
     lb = laplacian_pyramid(gaussian_pyramid(image2, level))
-
     gr = gaussian_pyramid(mask, level)
 
     ls = []
     for i in range(len(la)):
-        ls.append((1-gr[i]/255)*la[i] + gr[i]/255*lb[i])
+        normal_mask_weight = gr[i].astype(float)/255
+        ls.append(utils.safe_add((1-normal_mask_weight)*la[i], normal_mask_weight*lb[i]))
 
-    for lv in range(len(ls)-1, 0, -1):
-        ls[lv-1] = utils.safe_add(ls[lv-1], utils.up_sampling(ls[lv]))
+    res = np.zeros(ls[0].shape)
+    for lv in range(len(ls)):
+        var = ls[lv]
+        for i in range(lv):
+            var = utils.up_sampling(var)
 
-    return ls[0]
+        res = utils.safe_add(res, var)
+
+    return res
 
 if __name__ == '__main__':
     hand = np.asarray(Image.open(os.path.join('images', 'hand.jpeg')).convert('RGB'))
