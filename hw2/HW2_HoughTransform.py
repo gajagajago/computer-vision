@@ -104,16 +104,13 @@ def HoughLineSegments(lRho, lTheta, Im):
     return l
 
 def main():
-    Igs = np.arange(100).reshape(10,-1)
-    out = ConvFilter(Igs, np.arange(9).reshape(3, 3))
-
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
-        # Igs = np.array(img)
-        # Igs = Igs / 255.
+        Igs = np.array(img)
+        Igs = Igs / 255.
 
         out = ConvFilter(Igs, np.arange(9).reshape(3, 3))
 
