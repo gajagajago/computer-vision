@@ -6,6 +6,7 @@ from PIL import Image
 
 #temp import
 from scipy import signal
+from matplotlib import pyplot as plt
 
 # parameters
 
@@ -13,7 +14,7 @@ datadir = './data'
 resultdir='./results'
 
 # you can calibrate these parameters
-sigma=2
+sigma=3
 highThreshold=0.03
 lowThreshold=0.01
 rhoRes=2
@@ -124,35 +125,47 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
                 l = Imag[x][y-1] if y>0 else 0
                 r = Imag[x][y+1] if y<Io.shape[1]-1 else 0
                 if not isMax3(target_g, l, r):
-                    target_g = 0
+                    Imag[x][y] = 0
 
             # 우상향 대각 방향
             elif (1/8)*math.pi < theta < (3/8)*math.pi or (-7/8)*math.pi < theta < (-5/8)*math.pi :
                 ld = Imag[x+1][y-1] if y>0 and x<Io.shape[0]-1 else 0
                 ru = Imag[x-1][y+1] if y<Io.shape[1]-1 and x>0 else 0
                 if not isMax3(target_g, ld, ru):
-                    target_g = 0
+                    Imag[x][y] = 0
 
             # 수직 방향
             elif (3/8)*math.pi <= theta <= (5/8)*math.pi or (-5/8)*math.pi < theta < (-3/8)*math.pi:
                 u = Imag[x-1][y] if x>0 else 0
                 d = Imag[x+1][y] if x<Io.shape[0]-1 else 0
                 if not isMax3(target_g, u, d):
-                    target_g = 0
+                    Imag[x][y] = 0
 
             # 좌상향 대각 방향
             else :
                 lu = Imag[x-1][y-1] if x>0 and y>0 else 0
                 rd = Imag[x+1][y+1] if x<Io.shape[0]-1 and y<Io.shape[1]-1 else 0
                 if not isMax3(target_g, lu, rd):
-                    target_g = 0
+                    Imag[x][y] = 0
+    # print(Io)
+    # print("\n\n\n")
+    # print(Imag)
 
-
-
-
-
+    print("Mean of Imag: ", np.mean(Imag), "\n")
     # 5. Apply double thresholding
+    # !important Corner cases
+    for x in range(Imag.shape[0]):
+        for y in range(Imag.shape[1]):
+            target = Imag[x][y]
 
+            if target >= highThreshold:
+                continue
+            elif target < lowThreshold:
+                Imag[x][y] = 0
+            else:
+                neighbors = Imag[max(x-1,0):min(Imag.shape[0], x+2), max(y-1,0):min(Imag.shape[1], y+2)]
+                if np.max(neighbors) < highThreshold:
+                    Imag[x][y] = 0
 
     # 잠시 주석처리
     # return Im, Io, Ix, Iy
@@ -215,6 +228,13 @@ def main():
         # Hough function
 
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
+
+        ret = (Im * 255).astype(np.uint8)
+        if ret is not None:
+            plt.figure()
+            plt.imshow(ret.astype(np.uint8))
+            plt.axis('off')
+            plt.show()
 
         # 밑에 임시 주석처리
 
