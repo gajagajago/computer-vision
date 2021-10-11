@@ -73,6 +73,9 @@ def convolve(Img, G):
 
     return out
 
+def isMax3(target, compare1, compare2):
+    return target >= compare1 and target >= compare2
+
 def ConvFilter(Igs, G):
     iconv = replicatePadding(Igs, G)
     out = convolve(iconv, G)
@@ -88,25 +91,66 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
     # Replicate pad Igs and Convolve w/ g_kernel
     smoothed = ConvFilter(Igs, g_kernel).clip(0, 1)
-    print("Smoothed: ", smoothed, "\n")
-    print("Max: ", np.amax(smoothed), " Min: ", np.amin(smoothed), "\n")
+    # print("Smoothed: ", smoothed, "\n")
+    # print("Max: ", np.amax(smoothed), " Min: ", np.amin(smoothed), "\n")
 
     # 2. Convolve smoothed img w/ sobel operators => Ix, Iy
     sobel_g = np.array([[1], [2], [1]])
     sobel_d = np.array([[-1, 0, 1]])
 
-    Ix = convolve(convolve(smoothed, sobel_g), sobel_d).clip(0, 1)
-    Iy = convolve(convolve(smoothed, sobel_g.T), sobel_d.T).clip(0, 1)
+    Ix = convolve(convolve(smoothed, sobel_g), sobel_d) # 이건 clip 하면 안됨
+    Iy = convolve(convolve(smoothed, sobel_g.T), sobel_d.T) # 이건 clip 하면 안됨
 
-    print("Ix: ", Ix, " Iy: ", Iy, "\n");
+    # print("Ix: ", Ix, " \nIy: ", Iy, "\n");
     # 3. Get gradient magnitude img, gradient direction img Io
     # Imag = np.sqrt(np.sum(np.square(Ix), np.square(Iy))).asType(np.uint8).clip(0, 255)
     Imag = np.sqrt(np.add(np.square(Ix), np.square(Iy))).clip(0, 1)
-    print("Max: ", np.amax(Imag), " Min: ", np.amin(Imag), "\n")
+    # print("Max: ", np.amax(Imag), " Min: ", np.amin(Imag), "\n")
 
-    Io = np.arctan2(Iy, Ix)
+    Io = np.arctan2(Iy, Ix).astype(np.float16)
+    # print("Io: ", Io, "\n")
+    # print("Max: ", np.amax(Io), " Min: ", np.amin(Io), "\n")
 
     # 4. Apply non maximal suppression
+    # !important Corner cases
+
+    for x in range(Io.shape[0]):
+        for y in range(Io.shape[1]):
+            theta = Io[x][y]
+            target_g = Imag[x][y]
+
+            # 수평 방향
+            if (-1/8)*math.pi <= theta <= (1/8)*math.pi or (theta >= (7/8)*math.pi) or (theta <= (-7/8)*math.pi) :
+                l = Imag[x][y-1] if y>0 else 0
+                r = Imag[x][y+1] if y<Io.shape[1]-1 else 0
+                if not isMax3(target_g, l, r):
+                    target_g = 0
+
+            # 우상향 대각 방향
+            elif (1/8)*math.pi < theta < (3/8)*math.pi or (-7/8)*math.pi < theta < (-5/8)*math.pi :
+                ld = Imag[x+1][y-1] if y>0 and x<Io.shape[0]-1 else 0
+                ru = Imag[x-1][y+1] if y<Io.shape[1]-1 and x>0 else 0
+                if not isMax3(target_g, ld, ru):
+                    target_g = 0
+
+            # 수직 방향
+            elif (3/8)*math.pi <= theta <= (5/8)*math.pi or (-5/8)*math.pi < theta < (-3/8)*math.pi:
+                u = Imag[x-1][y] if x>0 else 0
+                d = Imag[x+1][y] if x<Io.shape[0]-1 else 0
+                if not isMax3(target_g, u, d):
+                    target_g = 0
+
+            # 좌상향 대각 방향
+            else :
+                lu = Imag[x-1][y-1] if x>0 and y>0 else 0
+                rd = Imag[x+1][y+1] if x<Io.shape[0]-1 and y<Io.shape[1]-1 else 0
+                if not isMax3(target_g, lu, rd):
+                    target_g = 0
+
+
+
+
+
     # 5. Apply double thresholding
 
 
@@ -165,8 +209,8 @@ def main():
         Igs = Igs / 255.
 
         # 임시 print
-        print("Igs: ", Igs, "\n")
-        print("Max: ", np.amax(Igs), " Min: ", np.amin(Igs), "\n")
+        # print("Igs: ", Igs, "\n")
+        # print("Max: ", np.amax(Igs), " Min: ", np.amin(Igs), "\n")
 
         # Hough function
 
