@@ -15,8 +15,8 @@ resultdir='./results'
 
 # you can calibrate these parameters
 sigma=3
-highThreshold=0.03
-lowThreshold=0.01
+highThreshold=0.04
+lowThreshold=0.03
 rhoRes=2
 thetaRes=math.pi/180
 nLines=20
@@ -151,7 +151,7 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # print("\n\n\n")
     # print(Imag)
 
-    print("Mean of Imag: ", np.mean(Imag), "\n")
+    # print("Mean of Imag: ", np.mean(Imag), "\n")
     # 5. Apply double thresholding
     # !important Corner cases
     for x in range(Imag.shape[0]):
@@ -173,9 +173,31 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
-    # TODO ...
+    # 1. Fix origin to be Cx, Cy of Im
+    # Assume Im.shape = (even, even)
+    # ex. Im.shape = (10,10) -> Origin: Upper left intersection of 5th row and column
+    Cx = Im.shape[0] / 2
+    Cy = Im.shape[1] / 2
 
+    # 2. Calculate rhoMax
+    rhoMax = math.sqrt(Cx**2 + Cy**2)
 
+    # 3. Make H = ( math.ceil(rhoMax/rhoRes), math.ceil(2*pi/thetaRes) )
+    H = np.zeros((math.ceil(rhoMax/rhoRes), math.ceil(2*math.pi/thetaRes)))
+    print("Shape of H: ", H.shape, "\n")
+
+    # 4. For every non zero pixel in Im, calculate theta, rho -> Vote on H
+    for y in range(Im.shape[1]):
+        for x in range(Im.shape[0]):
+            if Im[x][y] != 0:
+                theta = np.arctan2(y-Cy, x-Cx)
+                theta = theta if theta >= 0 else 2*math.pi + theta
+                rho = (x-Cx)*np.cos(theta) + (y-Cy)*np.sin(theta)
+
+                theta_normalized = math.floor(theta/thetaRes)
+                rho_normalized = math.floor(rho/rhoRes)
+
+                H[rho_normalized][theta_normalized] += 1
     return H
 
 def HoughLines(H,rhoRes,thetaRes,nLines):
@@ -221,6 +243,7 @@ def main():
         Igs = np.array(img)
         Igs = Igs / 255.
 
+        print(Igs.shape)
         # 임시 print
         # print("Igs: ", Igs, "\n")
         # print("Max: ", np.amax(Igs), " Min: ", np.amin(Igs), "\n")
@@ -229,16 +252,25 @@ def main():
 
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
-        ret = (Im * 255).astype(np.uint8)
-        if ret is not None:
+        # ret = (Im * 255).astype(np.uint8)
+        # if ret is not None:
+        #     plt.figure()
+        #     plt.imshow(ret.astype(np.uint8))
+        #     plt.axis('off')
+        #     plt.show()
+
+
+        H= HoughTransform(Im, rhoRes, thetaRes)
+        # 주석
+
+        if H is not None:
             plt.figure()
-            plt.imshow(ret.astype(np.uint8))
+            plt.imshow(H)
             plt.axis('off')
             plt.show()
 
-        # 밑에 임시 주석처리
+        # return
 
-        # H= HoughTransform(Im, rhoRes, thetaRes)
         # lRho,lTheta =HoughLines(H,rhoRes,thetaRes,nLines)
         # l = HoughLineSegments(lRho, lTheta, Im)
 
