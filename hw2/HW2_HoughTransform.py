@@ -75,7 +75,17 @@ def convolve(Img, G):
     return out
 
 def isMax3(target, compare1, compare2):
-    return target >= compare1 and target >= compare2
+    return target > compare1 and target > compare2
+
+def isMaxN(target, compareList):
+    ret = True
+
+    for cmp in compareList:
+        if target <= cmp:
+            ret = False
+            break
+
+    return ret
 
 def ConvFilter(Igs, G):
     iconv = replicatePadding(Igs, G)
@@ -201,8 +211,41 @@ def HoughTransform(Im, rhoRes, thetaRes):
     return H
 
 def HoughLines(H,rhoRes,thetaRes,nLines):
-    # TODO ...
+    # 1. Init returned list
+    lRho = []
+    lTheta = []
 
+    # 2. Non maximal suppression
+    for x in range(H.shape[0]):
+        for y in range(H.shape[1]):
+            lu = H[x-1][y-1] if x > 0 and y > 0 else 0
+            u = H[x-1][y] if x > 0 else 0
+            ru = H[x-1][y+1] if x > 0 and y < H.shape[1] - 1 else 0
+            l = H[x][y-1] if y > 0 else 0
+            r = H[x][y+1] if y < H.shape[1] - 1 else 0
+            ld = H[x+1][y-1] if x < H.shape[0] - 1 and y > 0 else 0
+            d = H[x+1][y] if x < H.shape[0] - 1 else 0
+            rd = H[x+1][y+1] if x < H.shape[0] - 1 and y < H.shape[1] - 1 else 0
+
+            isMax = isMaxN(H[x][y], [lu,u,ru,l,r,ld,d,rd])
+
+            if not isMax:
+                H[x][y] = 0
+
+    # 3. Retrieve top n voted entries from H
+    for i in range(nLines):
+        normal_rho, normal_theta = np.unravel_index(H.argmax(), H.shape)
+        lRho.append(normal_rho)
+        lTheta.append(normal_theta)
+
+        # print("CURR MAX in H: ", H.max(), "\n")
+        # print("Received Max: ", H[normal_rho][normal_theta], "\n")
+
+        H[normal_rho][normal_theta] = 0
+
+    # 4. Restore original rho, theta value
+    lRho = [rho * rhoRes for rho in lRho]
+    lTheta = [theta * thetaRes for theta in lTheta]
 
     return lRho,lTheta
 
@@ -263,15 +306,18 @@ def main():
         H= HoughTransform(Im, rhoRes, thetaRes)
         # 주석
 
-        if H is not None:
-            plt.figure()
-            plt.imshow(H)
-            plt.axis('off')
-            plt.show()
+        # if H is not None:
+        #     plt.figure()
+        #     plt.imshow(H)
+        #     plt.axis('off')
+        #     plt.show()
 
+
+        lRho,lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
+        print("lRho: ", lRho, "\n")
+        print("lTheta: ", lTheta, "\n")
         # return
 
-        # lRho,lTheta =HoughLines(H,rhoRes,thetaRes,nLines)
         # l = HoughLineSegments(lRho, lTheta, Im)
 
         # saves the outputs to files
