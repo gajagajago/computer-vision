@@ -2,11 +2,13 @@
 import math
 import glob
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
+from matplotlib import pyplot as plt
 
 #temp import
 from scipy import signal
-from matplotlib import pyplot as plt
+from matplotlib import cm
+
 
 # parameters
 
@@ -19,10 +21,9 @@ highThreshold=0.04
 lowThreshold=0.03
 rhoRes=2
 thetaRes=math.pi/180
-nLines=20
+nLines=4
 
 def replicatePadding(Igs, G):
-    # 1. Give padding to Igs, pad with nearest value
     padding_v = int((G.shape[0] - 1) / 2)
     padding_h = int((G.shape[1] - 1) / 2)
 
@@ -92,7 +93,6 @@ def ConvFilter(Igs, G):
     out = convolve(iconv, G)
 
     return out
-    # return out.astype(np.uint8).clip(0, 255)
 
 def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # 1. Smooth Igs w/ Gaussian kernel w/ sigma
@@ -102,29 +102,36 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
     # Replicate pad Igs and Convolve w/ g_kernel
     smoothed = ConvFilter(Igs, g_kernel).clip(0, 1)
-    # print("Smoothed: ", smoothed, "\n")
-    # print("Max: ", np.amax(smoothed), " Min: ", np.amin(smoothed), "\n")
+    print("Smoothed: Shape: ", smoothed.shape, "\n")
+
+    # temp
+    plt.figure()
+    plt.imshow(smoothed, cmap='gray')
+    plt.axis('off')
+    plt.show()
 
     # 2. Convolve smoothed img w/ sobel operators => Ix, Iy
     sobel_g = np.array([[1], [2], [1]])
     sobel_d = np.array([[-1, 0, 1]])
 
-    Ix = convolve(convolve(smoothed, sobel_g), sobel_d) # 이건 clip 하면 안됨
-    Iy = convolve(convolve(smoothed, sobel_g.T), sobel_d.T) # 이건 clip 하면 안됨
+    Ix = ConvFilter(ConvFilter(smoothed, sobel_g), sobel_d) # 이건 clip 하면 안됨
+    Iy = ConvFilter(ConvFilter(smoothed, sobel_g.T), sobel_d.T) # 이건 clip 하면 안됨
 
-    # print("Ix: ", Ix, " \nIy: ", Iy, "\n");
     # 3. Get gradient magnitude img, gradient direction img Io
-    # Imag = np.sqrt(np.sum(np.square(Ix), np.square(Iy))).asType(np.uint8).clip(0, 255)
     Imag = np.sqrt(np.add(np.square(Ix), np.square(Iy))).clip(0, 1)
-    # print("Max: ", np.amax(Imag), " Min: ", np.amin(Imag), "\n")
 
-    Io = np.arctan2(Iy, Ix).astype(np.float16)
-    # print("Io: ", Io, "\n")
-    # print("Max: ", np.amax(Io), " Min: ", np.amin(Io), "\n")
+    # temp
+    print("Imag before suppress:\n")
+    print("Imag.shape: ", Imag.shape, "\n")
+    plt.figure()
+    plt.imshow(Imag, cmap='gray')
+    plt.axis('off')
+    plt.show()
+
+    Io = np.arctan2(Iy, Ix)
 
     # 4. Apply non maximal suppression
     # !important Corner cases
-
     for x in range(Io.shape[0]):
         for y in range(Io.shape[1]):
             theta = Io[x][y]
@@ -152,37 +159,49 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
                     Imag[x][y] = 0
 
             # 좌상향 대각 방향
-            else :
+            else:
                 lu = Imag[x-1][y-1] if x>0 and y>0 else 0
                 rd = Imag[x+1][y+1] if x<Io.shape[0]-1 and y<Io.shape[1]-1 else 0
                 if not isMax3(target_g, lu, rd):
                     Imag[x][y] = 0
-    # print(Io)
-    # print("\n\n\n")
-    # print(Imag)
 
-    # print("Mean of Imag: ", np.mean(Imag), "\n")
+    # temp
+    print("Imag after suppress:\n")
+    plt.figure()
+    plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
+    plt.axis('off')
+    plt.show()
+
     # 5. Apply double thresholding
     # !important Corner cases
+    meanMag = np.mean(Imag)
+    relativeHighThreshold = meanMag * 1.25
+    relativeLowThreshold = meanMag * 0.75
+
     for x in range(Imag.shape[0]):
         for y in range(Imag.shape[1]):
             target = Imag[x][y]
 
-            if target >= highThreshold:
+            if target >= relativeHighThreshold:
                 continue
-            elif target < lowThreshold:
+            elif target < relativeLowThreshold:
                 Imag[x][y] = 0
             else:
                 neighbors = Imag[max(x-1,0):min(Imag.shape[0], x+2), max(y-1,0):min(Imag.shape[1], y+2)]
-                if np.max(neighbors) < highThreshold:
+                if np.max(neighbors) < relativeHighThreshold:
                     Imag[x][y] = 0
 
-    # 잠시 주석처리
-    # return Im, Io, Ix, Iy
+    # temp
+    print("Final Imag after double thresholding:\n")
+    plt.figure()
+    plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
+    plt.axis('off')
+    plt.show()
 
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
+    print("Shape of Im: ", Im.shape, " Max: ", np.max(Im), "Min: ", np.min(Im))
     # 1. Fix origin to be Cx, Cy of Im
     # Assume Im.shape = (even, even)
     # ex. Im.shape = (10,10) -> Origin: Upper left intersection of 5th row and column
@@ -277,46 +296,84 @@ def gkern(size, sigmax, sigmay):
 
     return (rows*cols) / np.sum(rows*cols)
 
+def validY(slope, xi, yi, x, minY, maxY):
+    y = slope * (x - xi) + yi
+
+    return minY <= y <= maxY, y
+
+def validX(slope, xi, yi, y, minX, maxX):
+    x = (y - yi)/slope + xi
+
+    return minX <= x <= maxX, x
+
 def main():
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
-        img = Image.open(img_path).convert("L")
+        # img = Image.open(img_path).convert("L")
+        img = Image.open(datadir+'/img02.jpg').convert("L")
 
         Igs = np.array(img)
         Igs = Igs / 255.
 
-        print(Igs.shape)
-        # 임시 print
-        # print("Igs: ", Igs, "\n")
-        # print("Max: ", np.amax(Igs), " Min: ", np.amin(Igs), "\n")
+        print("Shape of Igs: ", Igs.shape, "\n")
+
+        plt.figure()
+        plt.imshow(Igs, cmap='gray')
+        plt.axis('off')
+        plt.show()
 
         # Hough function
 
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
-        # ret = (Im * 255).astype(np.uint8)
-        # if ret is not None:
-        #     plt.figure()
-        #     plt.imshow(ret.astype(np.uint8))
-        #     plt.axis('off')
-        #     plt.show()
-
+        # Im *= 255 # restore value
 
         H= HoughTransform(Im, rhoRes, thetaRes)
-        # 주석
+        # temp
+        print("Hough:\n")
+        plt.figure()
+        plt.imshow((H).astype(np.uint8), cmap='gray')
+        plt.axis('off')
+        plt.show()
 
-        # if H is not None:
-        #     plt.figure()
-        #     plt.imshow(H)
-        #     plt.axis('off')
-        #     plt.show()
-
+        return
 
         lRho,lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
         print("lRho: ", lRho, "\n")
         print("lTheta: ", lTheta, "\n")
-        # return
+
+        # plot hough lines on org img
+        im = Image.open(datadir+'/g9.png')
+        draw = ImageDraw.Draw(im)
+        for i in range(len(lRho)):
+            shape = []
+            slope = -1/np.tan(lTheta[i])
+            # Cx = Im.shape[0] / 2
+            # Cy = Im.shape[1] / 2
+            xi = lRho[i] * np.cos(lTheta[i])
+            yi = lRho[i] * np.sin(lTheta[i])
+
+            minX = -Igs.shape[1] / 2
+            maxX = Igs.shape[1] / 2
+            minY = -Igs.shape[0] / 2
+            maxY = Igs.shape[0] / 2
+
+            if (validY(slope, xi, yi, maxX, minY, maxY)[0]):
+                shape.append((maxX, validY(slope, xi, yi, maxX, minY, maxY)[1]))
+            if (validY(slope, xi, yi, minX, minY, maxY)[0]):
+                shape.append((minX, validY(slope, xi, yi, minX, minY, maxY)[1]))
+            if (validX(slope, xi, yi, maxY, minX, maxX)[0]):
+                shape.append((validX(slope, xi, yi, maxY, minX, maxX)[1], maxY))
+            if (validX(slope, xi, yi, minY, minX, maxX)[0]):
+                shape.append((validX(slope, xi, yi, minY, minX, maxX)[1], minY))
+
+            shape = [(el[0] + Igs.shape[1] / 2, el[1] + Igs.shape[0] / 2) for el in shape]
+            draw.line(shape, fill="red", width=1)
+            print("Shape ", i, " ", shape)
+
+        im.show()
+        return
 
         # l = HoughLineSegments(lRho, lTheta, Im)
 
