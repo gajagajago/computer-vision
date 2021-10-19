@@ -20,9 +20,9 @@ resultdir='./results'
 sigma=1
 highThreshold=0.04
 lowThreshold=0.03
-rhoRes=4
-thetaRes=math.pi/180
-nLines=10
+rhoRes=8
+thetaRes=math.pi/90
+nLines=20
 
 def replicatePadding(Igs, G):
     padding_v = int((G.shape[0] - 1) / 2)
@@ -103,13 +103,13 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
     # Replicate pad Igs and Convolve w/ g_kernel
     smoothed = ConvFilter(Igs, g_kernel).clip(0, 1)
-    print("Smoothed: Shape: ", smoothed.shape, "\n")
-
-    # temp
-    plt.figure()
-    plt.imshow(smoothed, cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # print("Smoothed: Shape: ", smoothed.shape, "\n")
+    #
+    # # temp
+    # plt.figure()
+    # plt.imshow(smoothed, cmap='gray')
+    # plt.axis('off')
+    # plt.show()
 
     # 2. Convolve smoothed img w/ sobel operators => Ix, Iy
     sobel_g = np.array([[1], [2], [1]])
@@ -122,12 +122,12 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     Imag = np.sqrt(np.add(np.square(Ix), np.square(Iy))).clip(0, 1)
 
     # temp
-    print("Imag before suppress:\n")
-    print("Imag.shape: ", Imag.shape, "\n")
-    plt.figure()
-    plt.imshow(Imag, cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # print("Imag before suppress:\n")
+    # print("Imag.shape: ", Imag.shape, "\n")
+    # plt.figure()
+    # plt.imshow(Imag, cmap='gray')
+    # plt.axis('off')
+    # plt.show()
 
     Io = np.arctan2(Iy, Ix)
 
@@ -167,11 +167,11 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
                     Imag[x][y] = 0
 
     # temp
-    print("Imag after suppress:\n")
-    plt.figure()
-    plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # print("Imag after suppress:\n")
+    # plt.figure()
+    # plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
+    # plt.axis('off')
+    # plt.show()
 
     # 5. Apply double thresholding
     # !important Corner cases
@@ -193,22 +193,30 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
                     Imag[x][y] = 0
 
     # temp
-    print("Final Imag after double thresholding:\n")
-    plt.figure()
-    plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # print("Final Imag after double thresholding:\n")
+    # plt.figure()
+    # plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
+    # plt.axis('off')
+    # plt.show()
 
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
-    print("Shape of Im: ", Im.shape, " Max: ", np.max(Im), "Min: ", np.min(Im))
+    # print("Shape of Im: ", Im.shape, " Max: ", np.max(Im), "Min: ", np.min(Im))
+
+    # 1. Origin it at
+    #  -----------------
+    # |                 |
+    # |                 |
+    # |                 |
+    #  ________*________    <- here
+    cx = Im.shape[1]/2
 
     # 2. Calculate rhoMax
-    rhoMax = math.sqrt(Im.shape[0]**2 + Im.shape[1]**2)
+    rhoMax = math.sqrt(Im.shape[0]**2 + (Im.shape[1]/2)**2)
     # 3. Make H:
-    # 0<=rho<=rhoMax, 0<=theta<=pi/2
-    H = np.zeros((int(rhoMax/rhoRes)+1, int(math.pi/(2*thetaRes)+1)))
+    # 0<=rho<=rhoMax, 0<=theta<=pi
+    H = np.zeros((int(rhoMax/rhoRes)+1, int(math.pi/(thetaRes)+1)))
     print("Shape of H: ", H.shape, "\n")
 
     # 4. For every non zero pixel in Im, calculate theta, rho -> Vote on H
@@ -220,8 +228,10 @@ def HoughTransform(Im, rhoRes, thetaRes):
             Im_col = x
 
             if Im[Im_row][Im_col] != 0:
-                theta = np.arctan2(y, x)
-                rho = x*np.cos(theta) + y*np.sin(theta)
+                # theta = np.arctan2(y, (x-cx))
+                theta = np.arctan2(y, (x-cx)) if not x == cx else math.pi/2
+                print("Theta is 0: row: ", Im_row, " col: ", Im_col, "\n")
+                rho = (x-cx)*np.cos(theta) + y*np.sin(theta)
 
                 theta_normalized = math.floor(theta/thetaRes)
                 rho_normalized = math.floor(rho/rhoRes)
@@ -312,8 +322,8 @@ def main():
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
-        img = Image.open(img_path).convert("L")
-        # img = Image.open(datadir+'/g9.png').convert("L")
+        # img = Image.open(img_path).convert("L")
+        img = Image.open(datadir+'/sample-rectangle.png').convert("L")
 
         # img = np.zeros((200, 200))
         # img[line(45, 25, 25, 175)] = 255
@@ -340,54 +350,42 @@ def main():
         plt.imshow(H, cmap='gray')
         plt.show()
 
+
         lRho,lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
         print("lRho: ", lRho, "\n")
         print("lTheta: ", lTheta, "\n")
+        # return
 
         # plot hough lines on org img
-        im = Image.open(img_path)
+        im = Image.open(datadir+'/sample-rectangle.png')
         draw = ImageDraw.Draw(im)
+        cx = Igs.shape[1] / 2
 
         for i in range(nLines):
             shape = []
 
-            maxX = Igs.shape[1] - 1
-            maxY = Igs.shape[0] - 1
-
+            # theta = 0 -> Cx + rho 에 수직
             if lTheta[i] == 0:
-                shape.append((lRho[i], 0))
-                shape.append((lRho[i], maxY))
-
+                shape = [(cx+lRho[i], 0), (cx+lRho[i], Igs.shape[0])]
+            # theta = pi -> Cx - rho 에 수직
+            if lTheta[i] == math.pi:
+                shape = [(cx - lRho[i], 0), (cx - lRho[i], Igs.shape[0])]
             else:
-                # get slope
                 slope = - np.cos(lTheta[i]) / np.sin(lTheta[i])
-                y_intercept = lRho[i] / np.sin(lTheta[i])
+                y_intercept = lRho[i]/np.sin(lTheta[i])
+
+                # if y is valid in -cx
+                if 0 <= getY(slope, y_intercept, -cx) <= Igs.shape[0] - 1:
+                    shape.append((0, Igs.shape[0] - 1 - getY(slope, y_intercept, -cx)))
+                # if y is valid in +cx
+                if 0 <= getY(slope, y_intercept, cx) <= Igs.shape[0] - 1:
+                    shape.append((2*cx, Igs.shape[0] - 1 - getY(slope, y_intercept, cx)))
 
 
-                # valid y when x = 0
-                if 0 <= y_intercept <= maxY:
-                    point_from_Im_origin = (0, y_intercept)
-                    point_for_draw = (point_from_Im_origin[0], maxY-point_from_Im_origin[1])
-                    shape.append(point_for_draw)
-                # valid y when x = maxX
-                if 0 <= getY(slope, y_intercept, maxX) <= maxY:
-                    point_from_Im_origin = (maxX, getY(slope, y_intercept, maxX))
-                    point_for_draw = (point_from_Im_origin[0], maxY-point_from_Im_origin[1])
-                    shape.append(point_for_draw)
-                # valid x when y = 0
-                if 0 <= getX(slope, y_intercept, 0) <= maxX:
-                    point_from_Im_origin = (getX(slope, y_intercept, 0), 0)
-                    point_for_draw = (point_from_Im_origin[0], maxY-point_from_Im_origin[1])
-                    shape.append(point_for_draw)
-                # valid x when y = maxY
-                if 0 <= getX(slope, y_intercept, maxY) <= maxX:
-                    point_from_Im_origin = (getX(slope, y_intercept, maxY), maxY)
-                    point_for_draw = (point_from_Im_origin[0], maxY-point_from_Im_origin[1])
-                    shape.append(point_for_draw)
+
 
             # draw line
             draw.line(shape, width=1, fill='red')
-            # draw.line([(0,0), (Igs.shape[1]-1, Igs.shape[0]-1)], width=1, fill='red')
 
 
         im.show()
