@@ -1,4 +1,3 @@
-
 import math
 import glob
 import numpy as np
@@ -15,8 +14,8 @@ resultdir='./results'
 sigma=1
 highThreshold=0.04
 lowThreshold=0.03
-rhoRes=2
-thetaRes=math.pi/90
+rhoRes=4
+thetaRes=math.pi/180
 nLines=5
 
 def replicatePadding(Igs, G):
@@ -179,8 +178,8 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
-    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1])**2)
-    thetaMax = math.pi / 2
+    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1])**2) ## changed
+    thetaMax = math.pi ## changed
 
     H = np.zeros((int(rhoMax/rhoRes)+1, int(thetaMax/thetaRes)+1))
     print("Shape of H: ", H.shape, "\n")
@@ -190,12 +189,13 @@ def HoughTransform(Im, rhoRes, thetaRes):
     for y in range(Im.shape[0]):
         y_from_origin = (Im.shape[0]-1) - y
         for x in range(Im.shape[1]):
+            x_from_origin = x - Im.shape[1]/2
             if Im[y][x] != 0:
                 theta = 0
 
                 # add theta by theta Res every cycle
                 while theta <= thetaMax:
-                    rho = x * np.cos(theta) + y_from_origin * np.sin(theta)
+                    rho = x_from_origin * np.cos(theta) + y_from_origin * np.sin(theta)
                     rho_normalized = math.ceil(rho / rhoRes)
                     theta_normalized = math.ceil(theta / thetaRes)
                     H[rho_normalized][theta_normalized] += 1
@@ -319,19 +319,26 @@ def main():
 
         # return
         for i in range(nLines):
+            print("Doing ", i, "\n")
             shape = []
 
             imgMaxX = Igs.shape[1]-1
             imgMaxY = Igs.shape[0]-1
 
+            x_origin = Igs.shape[1]/2
+
             # theta = 0 -> Cx + rho 에 수직
             if lTheta[i] == 0:
-                shape = [(lRho[i], 0), (lRho[i], Igs.shape[0])]
+                shape = [(x_origin + lRho[i], 0), (x_origin + lRho[i], Igs.shape[0])]
+            # theta = pi -> Cx - rho 에 수직
+            elif lTheta[i] == math.pi:
+                shape = [(x_origin - lRho[i], 0), (x_origin - lRho[i], Igs.shape[0])]
             else:
                 # get slope
                 slope = - np.cos(lTheta[i]) / np.sin(lTheta[i])
                 y_intercept = lRho[i] / np.sin(lTheta[i])
 
+                print("Slope: ", slope, " intercept: ", y_intercept, "\n")
                 # if y is valid in x = 0
                 if 0 <= getY(slope, y_intercept, 0) <= imgMaxY:
                     shape.append((0, imgMaxY - getY(slope, y_intercept, 0)))
