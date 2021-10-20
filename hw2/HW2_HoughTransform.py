@@ -13,7 +13,7 @@ highThreshold=0.35
 lowThreshold=0.25
 rhoRes=2
 thetaRes=math.pi/90
-nLines=5
+nLines=20
 
 def replicatePadding(Igs, G):
     padding_v = int((G.shape[0] - 1) / 2)
@@ -136,8 +136,8 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
-    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1])**2)
-    thetaMax = math.pi / 2
+    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1])**2) ## changed
+    thetaMax = math.pi ## changed
 
     H = np.zeros((int(rhoMax/rhoRes)+1, int(thetaMax/thetaRes)+1))
     print("Shape of H: ", H.shape, "\n")
@@ -147,19 +147,20 @@ def HoughTransform(Im, rhoRes, thetaRes):
     for y in range(Im.shape[0]):
         y_from_origin = (Im.shape[0]-1) - y
         for x in range(Im.shape[1]):
+            x_from_origin = x - Im.shape[1]/2
             if Im[y][x] != 0:
                 theta = 0
 
                 # add theta by theta Res every cycle
                 while theta <= thetaMax:
-                    rho = x * np.cos(theta) + y_from_origin * np.sin(theta)
+                    rho = x_from_origin * np.cos(theta) + y_from_origin * np.sin(theta)
                     rho_normalized = math.ceil(rho / rhoRes)
                     theta_normalized = math.ceil(theta / thetaRes)
-                    if 0 <= rho_normalized:
-                        H[rho_normalized][theta_normalized] += 1
+                    H[rho_normalized][theta_normalized] += 1
                     theta += thetaRes
 
     return H
+
 def HoughLines(H,rhoRes,thetaRes,nLines):
     # 1. Init returned list
     lRho = []
@@ -192,6 +193,7 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     lRho = [rho * rhoRes for rho in lRho]
     lTheta = [theta * thetaRes for theta in lTheta]
     return lRho, lTheta
+
 def HoughLineSegments(lRho, lTheta, Im):
     # TODO ...
     return l
@@ -223,10 +225,7 @@ def main():
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
-        img = Image.open(img_path).convert("L")
-        # img = Image.open(datadir+'/g9.png').convert("L")
-        # img = Image.open(img_path).convert("L")
-        # img = Image.open(datadir+'/sample-rectangle.png').convert("L")
+        im = Image.open(img_path).convert("L")
         #
         # img = np.zeros((200, 200))
         # img[100] = 255
@@ -237,15 +236,13 @@ def main():
         #     img[119+i][i] = 255
 
         plt.figure()
-        plt.imshow(img, cmap='gray')
+        plt.imshow(im, cmap='gray')
         plt.axis('off')
         plt.show()
-        Igs = np.array(img)
+        Igs = np.array(im)
         Igs = Igs / 255.
-        print("Shape of Igs: ", Igs.shape, "\n")
         # Hough function
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
-
 
         # # temp test
         # Im = np.zeros((200, 200))
@@ -255,8 +252,6 @@ def main():
         #     Im[199-i][119+i] = 1
         #     Im[150-i][i] = 1
         #     Im[119+i][i] = 1
-
-
 
         H= HoughTransform(Im, rhoRes, thetaRes)
         # temp
@@ -272,24 +267,30 @@ def main():
 
         # plot hough lines on org img
         im = Image.open(img_path)
-        # im = Image.open(datadir+'/200space.png')
         draw = ImageDraw.Draw(im)
 
         # return
         for i in range(nLines):
+            print("Doing ", i, "\n")
             shape = []
 
             imgMaxX = Igs.shape[1]-1
             imgMaxY = Igs.shape[0]-1
 
+            x_origin = Igs.shape[1]/2
+
             # theta = 0 -> Cx + rho 에 수직
             if lTheta[i] == 0:
-                shape = [(lRho[i], 0), (lRho[i], Igs.shape[0])]
+                shape = [(x_origin + lRho[i], 0), (x_origin + lRho[i], Igs.shape[0])]
+            # theta = pi -> Cx - rho 에 수직
+            elif lTheta[i] == math.pi:
+                shape = [(x_origin - lRho[i], 0), (x_origin - lRho[i], Igs.shape[0])]
             else:
                 # get slope
                 slope = - np.cos(lTheta[i]) / np.sin(lTheta[i])
                 y_intercept = lRho[i] / np.sin(lTheta[i])
 
+                print("Slope: ", slope, " intercept: ", y_intercept, "\n")
                 # if y is valid in x = 0
                 if 0 <= getY(slope, y_intercept, 0) <= imgMaxY:
                     shape.append((0, imgMaxY - getY(slope, y_intercept, 0)))
@@ -304,11 +305,10 @@ def main():
                     shape.append((getX(slope, y_intercept, imgMaxY), 0))
 
             # draw line
-            draw.line(shape, width=1, fill='red')
+            draw.line(shape, width=1, fill='#00ff00')
             # draw.line([(0,0), (Igs.shape[1]-1, Igs.shape[0]-1)], width=1, fill='red')
 
         im.show()
-        # return
         # l = HoughLineSegments(lRho, lTheta, Im)
         # saves the outputs to files
         # Im, H, Im + hough line , Im + hough line segments
