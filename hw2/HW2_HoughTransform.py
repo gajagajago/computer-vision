@@ -13,7 +13,7 @@ highThreshold=0.35
 lowThreshold=0.25
 rhoRes=1
 thetaRes=math.pi/180
-nLines=5
+nLines=10
 
 def replicatePadding(Igs, G):
     padding_v = int((G.shape[0] - 1) / 2)
@@ -136,7 +136,7 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     return Imag, Io, Ix, Iy
 
 def HoughTransform(Im, rhoRes, thetaRes):
-    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1]/2)**2) ## changed
+    rhoMax = math.sqrt((Im.shape[0])**2 + (Im.shape[1])**2) ## changed
     thetaMax = math.pi ## changed
 
     H = np.zeros((int(rhoMax/rhoRes)*2+1, int(thetaMax/thetaRes)+1))
@@ -237,13 +237,15 @@ def main():
         # load grayscale image
         im = Image.open(img_path).convert("L")
 
-        im = np.zeros((200, 200))
-        im[100] = 255
-        for i in range(80):
-            im[199-i][119+i] = 255
-            im[150-i][i] = 255
-            im[119+i][i] = 255
-            im[2*i][20+i] = 255
+        # im = np.zeros((200, 200))
+        # im[100] = 255
+        # im[:,1] = 255
+        # im[:,198] = 255
+        # for i in range(80):
+        #     im[199-i][119+i] = 255
+        #     im[150-i][i] = 255
+        #     im[119+i][i] = 255
+        #     im[2*i][20+i] = 255
 
         plt.figure()
         plt.imshow(im, cmap='gray')
@@ -255,14 +257,16 @@ def main():
         # Hough function
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
-        # temp test
-        Im = np.zeros((200, 200))
-        Im[100] = 1
-        for i in range(80):
-            Im[199-i][119+i] = 1
-            Im[150-i][i] = 1
-            Im[119+i][i] = 1
-            Im[2*i][20+i] = 1
+        # # temp test
+        # Im = np.zeros((200, 200))
+        # Im[100] = 1
+        # Im[:,1] = 1
+        # Im[:,198] = 1
+        # for i in range(80):
+        #     Im[199-i][119+i] = 1
+        #     Im[150-i][i] = 1
+        #     Im[119+i][i] = 1
+        #     Im[2*i][20+i] = 1
 
         H= HoughTransform(Im, rhoRes, thetaRes)
 
@@ -271,8 +275,8 @@ def main():
         print("lTheta: ", lTheta, "\n")
 
         # plot hough lines on org img
-        # im = Image.open(img_path)
-        im = Image.open(datadir+'/200space.png')
+        im = Image.open(img_path)
+        # im = Image.open(datadir+'/200space.png')
         draw = ImageDraw.Draw(im)
 
         for i in range(nLines):
@@ -312,7 +316,7 @@ def main():
             draw.line(shape, width=1, fill='#00ff00')
 
         im.show()
-        return
+        # return
         # l = HoughLineSegments(lRho, lTheta, Im)
         # saves the outputs to files
         # Im, H, Im + hough line , Im + hough line segments
