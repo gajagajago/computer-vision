@@ -1,20 +1,16 @@
-
 import math
 import glob
 import numpy as np
 from PIL import Image, ImageDraw
 from matplotlib import pyplot as plt
-#temp import
-from scipy import signal
-from matplotlib import cm
-from skimage.draw import line
+
 # parameters
 datadir = './data'
 resultdir='./results'
 # you can calibrate these parameters
-sigma=1
-highThreshold=0.04
-lowThreshold=0.03
+sigma=3
+highThreshold=0.35
+lowThreshold=0.25
 rhoRes=2
 thetaRes=math.pi/90
 nLines=5
@@ -52,6 +48,7 @@ def replicatePadding(Igs, G):
             else:
                 iconv[row][col] = iconv[padded_h_last_idx - padding_v][padded_w_last_idx - padding_h]
     return iconv
+
 def convolve(Img, G):
     oh = Img.shape[0] - G.shape[0] + 1
     ow = Img.shape[1] - G.shape[1] + 1
@@ -61,8 +58,8 @@ def convolve(Img, G):
             result = (Img[x:x+G.shape[0], y:y+G.shape[1]] * np.flip(G)).sum()
             out[x][y] = result
     return out
-def isMax3(target, compare1, compare2):
-    return target > compare1 and target > compare2
+
+# Returns bool whether target is max compared to elements in compareList
 def isMaxN(target, compareList):
     ret = True
     for cmp in compareList:
@@ -70,10 +67,12 @@ def isMaxN(target, compareList):
             ret = False
             break
     return ret
+
 def ConvFilter(Igs, G):
     iconv = replicatePadding(Igs, G)
     out = convolve(iconv, G)
     return out
+
 def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     # 1. Smooth Igs w/ Gaussian kernel w/ sigma
     # set arbitrary g_kernel for test
@@ -81,20 +80,6 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
 
     # Replicate pad Igs and Convolve w/ g_kernel
     smoothed = ConvFilter(Igs, g_kernel).clip(0, 1)
-    # print("Smoothed: Shape: ", smoothed.shape, "\n")
-    #
-    # # temp
-    # plt.figure()
-    # plt.imshow(smoothed, cmap='gray')
-    # plt.axis('off')
-    # plt.show()
-    # print("Smoothed: Shape: ", smoothed.shape, "\n")
-    #
-    # # temp
-    # plt.figure()
-    # plt.imshow(smoothed, cmap='gray')
-    # plt.axis('off')
-    # plt.show()
 
     # 2. Convolve smoothed img w/ sobel operators => Ix, Iy
     sobel_g = np.array([[1], [2], [1]])
@@ -103,19 +88,9 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
     Iy = ConvFilter(ConvFilter(smoothed, sobel_g.T), sobel_d.T) # 이건 clip 하면 안됨
     # 3. Get gradient magnitude img, gradient direction img Io
     Imag = np.sqrt(np.add(np.square(Ix), np.square(Iy))).clip(0, 1)
-
-    # # temp
-    # print("Imag before suppress:\n")
-    # print("Imag.shape: ", Imag.shape, "\n")
-    # plt.figure()
-    # plt.imshow(Imag, cmap='gray')
-    # plt.axis('off')
-    # plt.show()
-
     Io = np.arctan2(Iy, Ix)
 
     # 4. Apply non maximal suppression
-    # !important Corner cases
     for x in range(Io.shape[0]):
         for y in range(Io.shape[1]):
             theta = Io[x][y]
@@ -124,57 +99,39 @@ def EdgeDetection(Igs, sigma, highThreshold, lowThreshold):
             if (-1/8)*math.pi <= theta <= (1/8)*math.pi or (theta >= (7/8)*math.pi) or (theta <= (-7/8)*math.pi) :
                 l = Imag[x][y-1] if y>0 else 0
                 r = Imag[x][y+1] if y<Io.shape[1]-1 else 0
-                if not isMax3(target_g, l, r):
+                if not isMaxN(target_g, [l, r]):
                     Imag[x][y] = 0
             # 우상향 대각 방향
             elif (1/8)*math.pi < theta < (3/8)*math.pi or (-7/8)*math.pi < theta < (-5/8)*math.pi :
                 ld = Imag[x+1][y-1] if y>0 and x<Io.shape[0]-1 else 0
                 ru = Imag[x-1][y+1] if y<Io.shape[1]-1 and x>0 else 0
-                if not isMax3(target_g, ld, ru):
+                if not isMaxN(target_g, [ld, ru]):
                     Imag[x][y] = 0
             # 수직 방향
             elif (3/8)*math.pi <= theta <= (5/8)*math.pi or (-5/8)*math.pi < theta < (-3/8)*math.pi:
                 u = Imag[x-1][y] if x>0 else 0
                 d = Imag[x+1][y] if x<Io.shape[0]-1 else 0
-                if not isMax3(target_g, u, d):
+                if not isMaxN(target_g, [u, d]):
                     Imag[x][y] = 0
             # 좌상향 대각 방향
             else:
                 lu = Imag[x-1][y-1] if x>0 and y>0 else 0
                 rd = Imag[x+1][y+1] if x<Io.shape[0]-1 and y<Io.shape[1]-1 else 0
-                if not isMax3(target_g, lu, rd):
+                if not isMaxN(target_g, [lu, rd]):
                     Imag[x][y] = 0
 
-    # # temp
-    # print("Imag after suppress:\n")
-    # plt.figure()
-    # plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
-    # plt.axis('off')
-    # plt.show()
-
     # 5. Apply double thresholding
-    # !important Corner cases
-    meanMag = np.mean(Imag)
-    relativeHighThreshold = meanMag * 1.25
-    relativeLowThreshold = meanMag
     for x in range(Imag.shape[0]):
         for y in range(Imag.shape[1]):
             target = Imag[x][y]
-            if target >= relativeHighThreshold:
+            if target >= highThreshold:
                 continue
-            elif target < relativeLowThreshold:
+            elif target < lowThreshold:
                 Imag[x][y] = 0
             else:
-                neighbors = Imag[max(x-1,0):min(Imag.shape[0], x+2), max(y-1,0):min(Imag.shape[1], y+2)]
-                if np.max(neighbors) < relativeHighThreshold:
+                neighbors = Imag[max(x-1, 0):min(Imag.shape[0], x+2), max(y-1, 0):min(Imag.shape[1], y+2)]
+                if np.max(neighbors) < highThreshold:
                     Imag[x][y] = 0
-
-    # # temp
-    # print("Final Imag after double thresholding:\n")
-    # plt.figure()
-    # plt.imshow((Imag * 255).astype(np.uint8), cmap='gray')
-    # plt.axis('off')
-    # plt.show()
 
     return Imag, Io, Ix, Iy
 
@@ -198,7 +155,8 @@ def HoughTransform(Im, rhoRes, thetaRes):
                     rho = x * np.cos(theta) + y_from_origin * np.sin(theta)
                     rho_normalized = math.ceil(rho / rhoRes)
                     theta_normalized = math.ceil(theta / thetaRes)
-                    H[rho_normalized][theta_normalized] += 1
+                    if 0 <= rho_normalized:
+                        H[rho_normalized][theta_normalized] += 1
                     theta += thetaRes
 
     return H
@@ -265,18 +223,18 @@ def main():
     # read images
     for img_path in glob.glob(datadir+'/*.jpg'):
         # load grayscale image
-        # img = Image.open(img_path).convert("L")
+        img = Image.open(img_path).convert("L")
         # img = Image.open(datadir+'/g9.png').convert("L")
         # img = Image.open(img_path).convert("L")
         # img = Image.open(datadir+'/sample-rectangle.png').convert("L")
         #
-        img = np.zeros((200, 200))
-        img[100] = 255
-        img[:,100] = 255
-        for i in range(80):
-            img[199-i][119+i] = 255
-            img[150-i][i] = 255
-            img[119+i][i] = 255
+        # img = np.zeros((200, 200))
+        # img[100] = 255
+        # img[:,100] = 255
+        # for i in range(80):
+        #     img[199-i][119+i] = 255
+        #     img[150-i][i] = 255
+        #     img[119+i][i] = 255
 
         plt.figure()
         plt.imshow(img, cmap='gray')
@@ -289,14 +247,14 @@ def main():
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
 
-        # temp test
-        Im = np.zeros((200, 200))
-        Im[100] = 1
-        Im[:,100] = 1
-        for i in range(80):
-            Im[199-i][119+i] = 1
-            Im[150-i][i] = 1
-            Im[119+i][i] = 1
+        # # temp test
+        # Im = np.zeros((200, 200))
+        # Im[100] = 1
+        # Im[:,100] = 1
+        # for i in range(80):
+        #     Im[199-i][119+i] = 1
+        #     Im[150-i][i] = 1
+        #     Im[119+i][i] = 1
 
 
 
@@ -313,8 +271,8 @@ def main():
         # return
 
         # plot hough lines on org img
-        # im = Image.open(img_path)
-        im = Image.open(datadir+'/200space.png')
+        im = Image.open(img_path)
+        # im = Image.open(datadir+'/200space.png')
         draw = ImageDraw.Draw(im)
 
         # return
@@ -350,7 +308,7 @@ def main():
             # draw.line([(0,0), (Igs.shape[1]-1, Igs.shape[0]-1)], width=1, fill='red')
 
         im.show()
-        return
+        # return
         # l = HoughLineSegments(lRho, lTheta, Im)
         # saves the outputs to files
         # Im, H, Im + hough line , Im + hough line segments
