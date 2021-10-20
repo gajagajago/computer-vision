@@ -13,7 +13,7 @@ highThreshold=0.35
 lowThreshold=0.25
 rhoRes=1
 thetaRes=math.pi/180
-nLines=20
+nLines=4
 
 def replicatePadding(Igs, G):
     padding_v = int((G.shape[0] - 1) / 2)
@@ -63,7 +63,7 @@ def convolve(Img, G):
 def isMaxN(target, compareList):
     ret = True
     for cmp in compareList:
-        if target <= cmp:
+        if target < cmp:
             ret = False
             break
     return ret
@@ -165,10 +165,10 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
     # 1. Init returned list
     lRho = []
     lTheta = []
+
     # 2. Non maximal suppression
     for y in range(H.shape[1]):
         for x in range(H.shape[0]):
-
             lu = H[x-1][y-1] if x > 0 and y > 0 else 0
             u = H[x-1][y] if x > 0 else 0
             ru = H[x-1][y+1] if x > 0 and y < H.shape[1] - 1 else 0
@@ -180,18 +180,18 @@ def HoughLines(H,rhoRes,thetaRes,nLines):
             isMax = isMaxN(H[x][y], [lu,u,ru,l,r,ld,d,rd])
             if not isMax:
                 H[x][y] = 0
+
     # 3. Retrieve top n voted entries from H
     for i in range(nLines):
         normal_rho, normal_theta = np.unravel_index(H.argmax(), H.shape)
         lRho.append(normal_rho)
         lTheta.append(normal_theta)
-        print("Top", i, ": theta", normal_theta, " rho: ", normal_rho, "\n")
-        print("Received votes: ", H[normal_rho][normal_theta], "\n")
-        print("MAX: ", H.max(), "\n")
         H[normal_rho][normal_theta] = 0
+
     # 4. Restore original rho, theta value
     lRho = [rho * rhoRes for rho in lRho]
     lTheta = [theta * thetaRes for theta in lTheta]
+
     return lRho, lTheta
 
 def HoughLineSegments(lRho, lTheta, Im):
@@ -233,6 +233,7 @@ def main():
         plt.show()
         Igs = np.array(im)
         Igs = Igs / 255.
+
         # Hough function
         Im, Io, Ix, Iy = EdgeDetection(Igs, sigma, highThreshold, lowThreshold)
 
@@ -246,9 +247,7 @@ def main():
         im = Image.open(img_path)
         draw = ImageDraw.Draw(im)
 
-        # return
         for i in range(nLines):
-            print("Doing ", i, "\n")
             shape = []
 
             imgMaxX = Igs.shape[1]-1
