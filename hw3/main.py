@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # @ param p correspondence coordinates array e.g., [(173,10), (222,319), ... ]
 # @ retval ret normalized correspondence coordinates array
@@ -70,6 +71,29 @@ def compute_h_norm(p1, p2):
 
     return H
 
+def compute_h2(p1, p2):
+    # TODO ...
+
+    # number of pairs of corresponding interest points
+    N = p1.shape[0]
+
+    # construct A
+    A = [-p2[0][1], -p2[0][0], -1, 0, 0, 0, p1[0][1] * p2[0][1], p1[0][1] * p2[0][0], p1[0][1]]
+    for i in range(N):
+        arr1 = [-p2[i][1], -p2[i][0], -1, 0, 0, 0, p1[i][1] * p2[i][1], p1[i][1] * p2[i][0], p1[i][1]]
+        arr2 = [0, 0, 0, -p2[i][1], -p2[i][0], -1, p1[i][0] * p2[i][1], p1[i][0] * p2[i][0], p1[i][0]]
+        if i != 0:
+            A = np.vstack((A, arr1))
+        A = np.vstack((A, arr2))
+
+    # apply SVD
+    U, S, Vh = np.linalg.svd(A)
+    V = Vh.T
+
+    # find smallest eigenvalue and its corresponding eigenvector, which should be H
+    minev = V[:, np.argmin(S)]
+    H = np.reshape(minev, (3, 3))
+    return H
 
 def compute_h_norm2(p1, p2):
     # TODO ...
@@ -129,7 +153,37 @@ def compute_h_norm2(p1, p2):
     return H
 
 def warp_image(igs_in, igs_ref, H):
-    # TODO ...
+    ## x: -2609 ~ 454
+    ## y: -722 ~ 3021
+
+    igs_warp = np.zeros((2740, 3409, 3))
+    # ret = np.zeros((3744, 4000, 3))
+    for channel in range(3):
+        for x in range(igs_in.shape[1]):
+            for y in range(igs_in.shape[0]):
+                pt = np.array([x, y, 1]).T
+                pt_p = np.dot(H, pt)
+                pt_warped = np.array([pt_p[0]/pt_p[2], pt_p[1]/pt_p[2]], dtype=np.int64).T
+                x_warped = pt_warped[0] + 2609
+                y_warped = pt_warped[1] + 722
+                igs_warp[y_warped, x_warped, channel] = igs_in[y, x, channel]
+
+    plt.figure()
+    plt.imshow(igs_warp.astype(np.uint8))
+    plt.axis()
+    plt.show()
+
+    # pt = np.array([0, igs_in.shape[1] - 1, 1]).T
+    # pt_p = np.dot(H, pt)
+    # pt_warped = np.array([pt_p[0] / pt_p[2], pt_p[1] / pt_p[2]], dtype=np.int64).T
+    # print("pt_warped: ", pt_warped, "\n")
+    #
+    #
+    # pt = np.array([igs_in.shape[0] - 1, igs_in.shape[1] - 1, 1]).T
+    # pt_p = np.dot(H, pt)
+    # pt_warped = np.array([pt_p[0] / pt_p[2], pt_p[1] / pt_p[2]], dtype=np.int64).T
+    # print("pt_warped: ", pt_warped, "\n")
+
 
     return igs_warp, igs_merge
 
@@ -139,8 +193,10 @@ def rectify(igs, p1, p2):
     return igs_rec
 
 def set_cor_mosaic():
-    # TODO ...
-
+    p_in = np.array([[1283, 419], [1443, 407], [1286, 512], [1449, 507],
+                     [1287, 582], [1330, 587], [1287, 952], [1329, 916]])
+    p_ref = np.array([[535, 424], [676, 428], [537, 515], [679, 517],
+                      [538, 582], [577, 585], [537, 937], [577, 899]])
     return p_in, p_ref
 
 def set_cor_rec():
@@ -149,47 +205,49 @@ def set_cor_rec():
     return c_in, c_ref
 
 def main():
-    p1 = np.array([(125, 187), (175, 187), (175, 224), (125, 225)])
-    p2 = np.array([(134, 210), (192, 214), (191, 236), (135, 233)])
+    # p1 = np.array([(125, 187), (175, 187), (175, 224), (125, 225)])
+    # p2 = np.array([(134, 210), (192, 214), (191, 236), (135, 233)])
+    #
+    # H = compute_h(p1, p2)
+    # H2 = compute_h2(p1, p2)
+    # H_norm = compute_h_norm(p1, p2)
+    # H_norm2 = compute_h_norm2(p1, p2)
+    #
+    # print("*"*70, "\n")
+    # print("H: ", H, "\n")
+    # # print("H2: ", H2, "\n")
+    # print("H Normalized: ", H_norm, "\n")
+    # # print("H Normalized2: ", H_norm2, "\n")
+    # print("*"*70, "\n")
 
-    H = compute_h(p1, p2)
-    H_norm = compute_h_norm(p1, p2)
-    H_norm2 = compute_h_norm2(p1, p2)
 
-    print("*"*30, "\n")
-    print("H: ", H, "\n")
-    print("H Normalized: ", H_norm, "\n")
-    print("H Normalized2: ", H_norm2, "\n")
-    print("*"*30, "\n")
+    ##############
+    # step 1: mosaicing
+    ##############
 
-    #
-    # ##############
-    # # step 1: mosaicing
-    # ##############
-    #
-    # # read images
-    # img_in = Image.open('data/porto1.png').convert('RGB')
-    # img_ref = Image.open('data/porto2.png').convert('RGB')
-    #
-    # # shape of igs_in, igs_ref: [y, x, 3]
-    # igs_in = np.array(img_in)
-    # igs_ref = np.array(img_ref)
-    #
-    # # lists of the corresponding points (x,y)
-    # # shape of p_in, p_ref: [N, 2]
-    # p_in, p_ref = set_cor_mosaic()
-    #
-    # # p_ref = H * p_in
-    # H = compute_h_norm(p_ref, p_in)
-    # igs_warp, igs_merge = warp_image(igs_in, igs_ref, H)
-    #
+    # read images
+    img_in = Image.open('data/porto1.png').convert('RGB')
+    img_ref = Image.open('data/porto2.png').convert('RGB')
+
+    # shape of igs_in, igs_ref: [y, x, 3]
+    igs_in = np.array(img_in)
+    igs_ref = np.array(img_ref)
+
+    # lists of the corresponding points (x,y)
+    # shape of p_in, p_ref: [N, 2]
+    p_in, p_ref = set_cor_mosaic()
+
+    # p_ref = H * p_in
+    H = compute_h_norm(p_ref, p_in)
+    igs_warp, igs_merge = warp_image(igs_in, igs_ref, H)
+
     # # plot images
-    # img_warp = Image.fromarray(igs_warp.astype(np.uint8))
-    # img_merge = Image.fromarray(igs_merge.astype(np.uint8))
-    #
+    img_warp = Image.fromarray(igs_warp.astype(np.uint8))
+    img_merge = Image.fromarray(igs_merge.astype(np.uint8))
+
     # # save images
-    # img_warp.save('porto1_warped.png')
-    # img_merge.save('porto_mergeed.png')
+    img_warp.save('porto1_warped.png')
+    img_merge.save('porto_mergeed.png')
     #
     # ##############
     # # step 2: rectification
