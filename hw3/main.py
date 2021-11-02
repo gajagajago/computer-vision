@@ -157,14 +157,18 @@ def warp_image(igs_in, igs_ref, H):
     tx = 2609
     ty = 722
 
+    merge_pad_top = ty
+    merge_pad_bottom = 2740 - igs_ref.shape[0] - merge_pad_top
+
     igs_warp = np.zeros((2740, 3410, 3))
+    igs_merge = np.pad(igs_ref, ((merge_pad_top, merge_pad_bottom), (tx, 0), (0, 0)), 'constant')
 
     # Inverse warping
     H_inv = np.linalg.inv(H)
 
     for channel in range(3):
-        for x in range(-2609, 3410-2609):
-            for y in range(-722, 2740-722):
+        for x in range(-tx, 3410-tx):
+            for y in range(-ty, 2740-ty):
                 pt_p = np.array([x, y, 1]).T
                 pt = np.dot(H_inv, pt_p)
                 pt_inv_warped = np.array([pt[0]/pt[2], pt[1]/pt[2]]).T
@@ -187,25 +191,10 @@ def warp_image(igs_in, igs_ref, H):
                     a = x_inv_warped - x_floored
                     b = y_inv_warped - y_floored
 
-                    igs_warp[y + 722, x + 2609, channel] = (1 - a) * (1 - b) * f_ij + a * (
+                    interpolated = (1 - a) * (1 - b) * f_ij + a * (
                                 1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
-
-
-
-    # for channel in range(3):
-    #     for x in range(igs_in.shape[1]):
-    #         for y in range(igs_in.shape[0]):
-    #             pt = np.array([x, y, 1]).T
-    #             pt_p = np.dot(H, pt)
-    #             pt_warped = np.array([pt_p[0]/pt_p[2], pt_p[1]/pt_p[2]], dtype=np.int64).T
-    #             x_warped = pt_warped[0] + tx
-    #             y_warped = pt_warped[1] + ty
-    #             igs_warp[y_warped, x_warped, channel] = igs_in[y, x, channel]
-
-    plt.figure()
-    plt.imshow(igs_warp.astype(np.uint8))
-    plt.axis()
-    plt.show()
+                    igs_warp[y + ty, x + tx, channel] = interpolated
+                    igs_merge[y + ty, x + tx, channel] = interpolated
 
     return igs_warp, igs_merge
 
@@ -227,22 +216,6 @@ def set_cor_rec():
     return c_in, c_ref
 
 def main():
-    # p1 = np.array([(125, 187), (175, 187), (175, 224), (125, 225)])
-    # p2 = np.array([(134, 210), (192, 214), (191, 236), (135, 233)])
-    #
-    # H = compute_h(p1, p2)
-    # H2 = compute_h2(p1, p2)
-    # H_norm = compute_h_norm(p1, p2)
-    # H_norm2 = compute_h_norm2(p1, p2)
-    #
-    # print("*"*70, "\n")
-    # print("H: ", H, "\n")
-    # # print("H2: ", H2, "\n")
-    # print("H Normalized: ", H_norm, "\n")
-    # # print("H Normalized2: ", H_norm2, "\n")
-    # print("*"*70, "\n")
-
-
     ##############
     # step 1: mosaicing
     ##############
@@ -268,8 +241,8 @@ def main():
     img_merge = Image.fromarray(igs_merge.astype(np.uint8))
 
     # # save images
-    img_warp.save('porto1_warped.png')
-    img_merge.save('porto_mergeed.png')
+    img_warp.save('result/porto1_warped.png')
+    img_merge.save('result/porto_merged.png')
     #
     # ##############
     # # step 2: rectification
