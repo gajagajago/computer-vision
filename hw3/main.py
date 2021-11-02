@@ -153,37 +153,59 @@ def compute_h_norm2(p1, p2):
     return H
 
 def warp_image(igs_in, igs_ref, H):
-    ## x: -2609 ~ 454
-    ## y: -722 ~ 3021
+    # tx, ty for warped coordinates
+    tx = 2609
+    ty = 722
 
-    igs_warp = np.zeros((2740, 3409, 3))
-    # ret = np.zeros((3744, 4000, 3))
+    igs_warp = np.zeros((2740, 3410, 3))
+
+    # Inverse warping
+    H_inv = np.linalg.inv(H)
+
     for channel in range(3):
-        for x in range(igs_in.shape[1]):
-            for y in range(igs_in.shape[0]):
-                pt = np.array([x, y, 1]).T
-                pt_p = np.dot(H, pt)
-                pt_warped = np.array([pt_p[0]/pt_p[2], pt_p[1]/pt_p[2]], dtype=np.int64).T
-                x_warped = pt_warped[0] + 2609
-                y_warped = pt_warped[1] + 722
-                igs_warp[y_warped, x_warped, channel] = igs_in[y, x, channel]
+        for x in range(-2609, 3410-2609):
+            for y in range(-722, 2740-722):
+                pt_p = np.array([x, y, 1]).T
+                pt = np.dot(H_inv, pt_p)
+                pt_inv_warped = np.array([pt[0]/pt[2], pt[1]/pt[2]]).T
+                x_inv_warped = pt_inv_warped[0]
+                y_inv_warped = pt_inv_warped[1]
+
+                if x_inv_warped < 0 or x_inv_warped >= igs_in.shape[1] or y_inv_warped < 0 or y_inv_warped >= igs_in.shape[0]:
+                    continue
+
+                # Bi linear interpolation
+                x_floored = math.floor(x_inv_warped)
+                y_floored = math.floor(y_inv_warped)
+
+                if x_floored != igs_in.shape[1] - 1 and y_floored != igs_in.shape[0] - 1:
+                    f_ij = igs_in[y_floored, x_floored, channel]
+                    f_i1j = igs_in[y_floored + 1, x_floored, channel]
+                    f_i1j1 = igs_in[y_floored + 1, x_floored + 1, channel]
+                    f_ij1 = igs_in[y_floored, x_floored + 1, channel]
+
+                    a = x_inv_warped - x_floored
+                    b = y_inv_warped - y_floored
+
+                    igs_warp[y + 722, x + 2609, channel] = (1 - a) * (1 - b) * f_ij + a * (
+                                1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
+
+
+
+    # for channel in range(3):
+    #     for x in range(igs_in.shape[1]):
+    #         for y in range(igs_in.shape[0]):
+    #             pt = np.array([x, y, 1]).T
+    #             pt_p = np.dot(H, pt)
+    #             pt_warped = np.array([pt_p[0]/pt_p[2], pt_p[1]/pt_p[2]], dtype=np.int64).T
+    #             x_warped = pt_warped[0] + tx
+    #             y_warped = pt_warped[1] + ty
+    #             igs_warp[y_warped, x_warped, channel] = igs_in[y, x, channel]
 
     plt.figure()
     plt.imshow(igs_warp.astype(np.uint8))
     plt.axis()
     plt.show()
-
-    # pt = np.array([0, igs_in.shape[1] - 1, 1]).T
-    # pt_p = np.dot(H, pt)
-    # pt_warped = np.array([pt_p[0] / pt_p[2], pt_p[1] / pt_p[2]], dtype=np.int64).T
-    # print("pt_warped: ", pt_warped, "\n")
-    #
-    #
-    # pt = np.array([igs_in.shape[0] - 1, igs_in.shape[1] - 1, 1]).T
-    # pt_p = np.dot(H, pt)
-    # pt_warped = np.array([pt_p[0] / pt_p[2], pt_p[1] / pt_p[2]], dtype=np.int64).T
-    # print("pt_warped: ", pt_warped, "\n")
-
 
     return igs_warp, igs_merge
 
