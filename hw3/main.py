@@ -7,26 +7,20 @@ from matplotlib import pyplot as plt
 # @ retval ret normalized correspondence coordinates array
 # @ retval T transformation matrix used for p normalization
 def normalize(p):
-    # print("p: ", p, "\n")
-    # print("p.shape: ", p.shape, "\n")
     ret = np.zeros(p.shape)
     centroid_x, centroid_y = np.mean(p, axis=0)
 
     # 1. Translate centroid to origin
     T = np.array([[1, 0, -centroid_x], [0, 1, -centroid_y], [0, 0, 1]])
-    # print("T1 for translation: ", T, "\n")
 
     # 2. Scale such that avg distance from origin == math.sqrt(2)
     sum_distance = 0
     for pt in p:
         sum_distance += math.sqrt(pt[0]**2 + pt[1]**2)
     avg_distance = sum_distance / p.shape[0]
-    # print("avg_distance: ", avg_distance, "\n")
     scale_factor = avg_distance / math.sqrt(2)
-    # print("scale factor: ", scale_factor, "\n")
 
     T /= scale_factor
-    # print("T1 after scaling: ", T, "\n")
 
     # 3. Normalize pts in p
     for i in range(p.shape[0]):
@@ -69,22 +63,25 @@ def compute_h_norm(p1, p2):
     return H
 
 def warp_image(igs_in, igs_ref, H):
+    # Hyper Parameters
+    warp_h = 2740
+    warp_w = 3410
     # tx, ty for warped coordinates
     tx = 2609
     ty = 722
 
     merge_pad_top = ty
-    merge_pad_bottom = 2740 - igs_ref.shape[0] - merge_pad_top
+    merge_pad_bottom = warp_h - igs_ref.shape[0] - merge_pad_top
 
-    igs_warp = np.zeros((2740, 3410, 3))
+    igs_warp = np.zeros((warp_h, warp_w, 3))
     igs_merge = np.pad(igs_ref, ((merge_pad_top, merge_pad_bottom), (tx, 0), (0, 0)), 'constant')
 
     # Inverse warping
     H_inv = np.linalg.inv(H)
 
     for channel in range(3):
-        for x in range(-tx, 3410-tx):
-            for y in range(-ty, 2740-ty):
+        for x in range(-tx, warp_w-tx):
+            for y in range(-ty, warp_h-ty):
                 pt_p = np.array([x, y, 1]).T
                 pt = np.dot(H_inv, pt_p)
                 pt_inv_warped = np.array([pt[0]/pt[2], pt[1]/pt[2]]).T
@@ -170,8 +167,8 @@ def main():
     ##############
 
     # read images
-    img_in = Image.open('../data/porto1.png').convert('RGB')
-    img_ref = Image.open('../data/porto2.png').convert('RGB')
+    img_in = Image.open('data/porto1.png').convert('RGB')
+    img_ref = Image.open('data/porto2.png').convert('RGB')
 
     # shape of igs_in, igs_ref: [y, x, 3]
     igs_in = np.array(img_in)
@@ -197,7 +194,7 @@ def main():
     # step 2: rectification
     #############
 
-    img_rec = Image.open('../data/iphone.png').convert('RGB')
+    img_rec = Image.open('data/iphone.png').convert('RGB')
     igs_rec = np.array(img_rec)
 
     c_in, c_ref = set_cor_rec()
