@@ -79,35 +79,35 @@ def warp_image(igs_in, igs_ref, H):
     # Inverse warping
     H_inv = np.linalg.inv(H)
 
-    for channel in range(3):
-        for x in range(-tx, warp_w-tx):
-            for y in range(-ty, warp_h-ty):
-                pt_p = np.array([x, y, 1]).T
-                pt = np.dot(H_inv, pt_p)
-                pt_inv_warped = np.array([pt[0]/pt[2], pt[1]/pt[2]]).T
-                x_inv_warped = pt_inv_warped[0]
-                y_inv_warped = pt_inv_warped[1]
+    for x in range(-tx, warp_w - tx):
+        for y in range(-ty, warp_h - ty):
+            pt_p = np.array([x, y, 1]).T
+            pt = np.dot(H_inv, pt_p)
+            pt_inv_warped = np.array([pt[0] / pt[2], pt[1] / pt[2]]).T
+            x_inv_warped = pt_inv_warped[0]
+            y_inv_warped = pt_inv_warped[1]
 
-                if x_inv_warped < 0 or x_inv_warped >= igs_in.shape[1] or y_inv_warped < 0 or y_inv_warped >= igs_in.shape[0]:
-                    continue
+            if x_inv_warped < 0 or x_inv_warped >= igs_in.shape[1] or y_inv_warped < 0 or y_inv_warped >= igs_in.shape[
+                0]:
+                continue
 
-                # Bi linear interpolation
-                x_floored = math.floor(x_inv_warped)
-                y_floored = math.floor(y_inv_warped)
+            # Bi linear interpolation
+            x_floored = math.floor(x_inv_warped)
+            y_floored = math.floor(y_inv_warped)
 
-                if x_floored != igs_in.shape[1] - 1 and y_floored != igs_in.shape[0] - 1:
-                    f_ij = igs_in[y_floored, x_floored, channel]
-                    f_i1j = igs_in[y_floored + 1, x_floored, channel]
-                    f_i1j1 = igs_in[y_floored + 1, x_floored + 1, channel]
-                    f_ij1 = igs_in[y_floored, x_floored + 1, channel]
+            if x_floored != igs_in.shape[1] - 1 and y_floored != igs_in.shape[0] - 1:
+                f_ij = igs_in[y_floored, x_floored]
+                f_i1j = igs_in[y_floored + 1, x_floored]
+                f_i1j1 = igs_in[y_floored + 1, x_floored + 1]
+                f_ij1 = igs_in[y_floored, x_floored + 1]
 
-                    a = x_inv_warped - x_floored
-                    b = y_inv_warped - y_floored
+                a = x_inv_warped - x_floored
+                b = y_inv_warped - y_floored
 
-                    interpolated = (1 - a) * (1 - b) * f_ij + a * (
-                                1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
-                    igs_warp[y + ty, x + tx, channel] = interpolated
-                    igs_merge[y + ty, x + tx, channel] = interpolated
+                interpolated = (1 - a) * (1 - b) * f_ij + a * (
+                        1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
+                igs_warp[y + ty, x + tx] = interpolated
+                igs_merge[y + ty, x + tx] = interpolated
 
     return igs_warp, igs_merge
 
@@ -118,32 +118,31 @@ def rectify(igs, p1, p2):
     # Inverse warping
     H_inv = np.linalg.inv(H)
 
-    for channel in range(3):
-        for x in range(igs_rec.shape[1]):
-            for y in range(igs_rec.shape[0]):
-                pt_p = np.array([x, y, 1]).T
-                pt = np.dot(H_inv, pt_p)
-                pt_inv_warped = np.array([pt[0] / pt[2], pt[1] / pt[2]]).T
-                x_inv_warped = pt_inv_warped[0]
-                y_inv_warped = pt_inv_warped[1]
+    for x in range(igs_rec.shape[1]):
+        for y in range(igs_rec.shape[0]):
+            pt_p = np.array([x, y, 1]).T
+            pt = np.dot(H_inv, pt_p)
+            pt_inv_warped = np.array([pt[0] / pt[2], pt[1] / pt[2]]).T
+            x_inv_warped = pt_inv_warped[0]
+            y_inv_warped = pt_inv_warped[1]
 
-                if 0 <= x_inv_warped <= igs.shape[1] and 0 <= y_inv_warped <= igs.shape[0]:
-                    # Bi linear interpolation
-                    x_floored = math.floor(x_inv_warped)
-                    y_floored = math.floor(y_inv_warped)
+            if 0 <= x_inv_warped <= igs.shape[1] and 0 <= y_inv_warped <= igs.shape[0]:
+                # Bi linear interpolation
+                x_floored = math.floor(x_inv_warped)
+                y_floored = math.floor(y_inv_warped)
 
-                    if x_floored != igs.shape[1] - 1 and y_floored != igs.shape[0] - 1:
-                        f_ij = igs[y_floored, x_floored, channel]
-                        f_i1j = igs[y_floored + 1, x_floored, channel]
-                        f_i1j1 = igs[y_floored + 1, x_floored + 1, channel]
-                        f_ij1 = igs[y_floored, x_floored + 1, channel]
+                if x_floored != igs.shape[1] - 1 and y_floored != igs.shape[0] - 1:
+                    f_ij = igs[y_floored, x_floored]
+                    f_i1j = igs[y_floored + 1, x_floored]
+                    f_i1j1 = igs[y_floored + 1, x_floored + 1]
+                    f_ij1 = igs[y_floored, x_floored + 1]
 
-                        a = x_inv_warped - x_floored
-                        b = y_inv_warped - y_floored
+                    a = x_inv_warped - x_floored
+                    b = y_inv_warped - y_floored
 
-                        interpolated = (1 - a) * (1 - b) * f_ij + a * (
-                                1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
-                        igs_rec[y, x, channel] = interpolated
+                    interpolated = (1 - a) * (1 - b) * f_ij + a * (
+                            1 - b) * f_i1j + a * b * f_i1j1 + (1 - a) * b * f_ij1
+                    igs_rec[y, x] = interpolated
 
     return igs_rec
 
