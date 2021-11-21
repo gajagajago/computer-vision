@@ -16,7 +16,7 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     # img1: I(t)
     img1_h, img1_w = img1.shape
 
-    # See how template I(t) --p--> I(t+1) would have transformed
+    # See how template I(t) --M--> I(t+1) would have transformed
     img1_origin = np.array([0, 0, 1])
     img1_end = np.array([img1_w-1, img1_h-1, 1])
 
@@ -54,8 +54,8 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
             ret = np.dot(np.dot(D_I, Jac).T, err)
             H = np.dot(np.dot(D_I, Jac).T, np.dot(D_I, Jac))
 
-            ParamSum = ParamSum + ret
-            Hessian = Hessian + H
+            ParamSum += ret
+            Hessian += H
 
     Hessian_inv = np.linalg.inv(Hessian)
     dp = np.dot(Hessian_inv, ParamSum).reshape(6)
@@ -100,16 +100,31 @@ def subtract_dominant_motion(img1, img2):
     # |I(t+1) - I(t)|
     moving_image = np.abs(img2 - warped_img1)
 
-    th_hi = 0.2 * 256  # you can modify this
-    th_lo = 0.15 * 256  # you can modify this
+    # tuned parameters to neglect camera calibration
+    th_hi = 0.3 * 256
+    th_lo = 0.25 * 256
 
     hyst = apply_hysteresis_threshold(moving_image, th_lo, th_hi)
 
-    # if hyst is not None:
-    #     plt.figure()
-    #     plt.imshow(hyst.astype(np.uint8))
-    #     plt.axis('off')
-    #     plt.show()
+    # plt.figure()
+    # plt.axis('off')
+    # plt.subplot(2, 2, 1)
+    # plt.imshow(warped_img1.astype(np.uint8))
+    # plt.xlabel('Warped Img1')
+    #
+    # plt.subplot(2, 2, 2)
+    # plt.imshow(img2.astype(np.uint8))
+    # plt.xlabel('Img2')
+    #
+    # plt.subplot(2, 2, 3)
+    # plt.imshow(moving_image.astype(np.uint8))
+    # plt.xlabel('Moving Img')
+    #
+    # plt.subplot(2, 2, 4)
+    # plt.imshow(hyst.astype(np.uint8))
+    # plt.xlabel('Thresholded Img')
+    #
+    # plt.show()
 
     return hyst
 
@@ -129,8 +144,5 @@ if __name__ == "__main__":
         clone[moving_img, 2] = 522
         out.write(clone)
         T = I
-        print("Img ", i, " Complete")
-        # if i == 2:
-        #     break;
     out.release()
     
