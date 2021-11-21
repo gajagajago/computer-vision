@@ -10,7 +10,6 @@ import math
 
 def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     ### START CODE HERE ###
-
     # Form affine matrix M
     p1, p2, p3, p4, p5, p6 = p
     M = np.array([[1+p1, p3, p5], [p2, 1+p4, p6]])  # (2,3) matrix
@@ -41,27 +40,27 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
     # I(W(x;p))
     I_W = rect_B_spline.ev(warped_x_mg, warped_y_mg)
 
-    if I_W is not None:
-        plt.figure()
-        plt.imshow(I_W.astype(np.uint8))
-        plt.axis()
-        plt.show()
-
     # Error image T(x) - I(W(x;p))
     Err = img1 - I_W
 
-    if Err is not None:
-        plt.figure()
-        plt.imshow(Err.astype(np.uint8))
-        plt.axis()
-        plt.show()
+    # Parametric model
+    Hessian = np.zeros((6, 6))
+    ParamSum = np.zeros((6, 1))
 
+    for x in range(Err.shape[0]):
+        for y in range(Err.shape[1]):
+            D_I = np.array([[Gx[x][y], Gy[x][y]]]) # (1,2)
+            Jac = np.array([[x, 0, y, 0, 1, 0], [0, x, 0, y, 0, 1]]) # (2,6)
+            err = Err[x][y]
+            ret = np.dot(np.dot(D_I, Jac).T, err)
+            H = np.dot(np.dot(D_I, Jac).T, np.dot(D_I, Jac))
 
+            ParamSum = ParamSum + ret
+            Hessian = Hessian + H
 
-    dp = 0
+    Hessian_inv = np.linalg.inv(Hessian)
+    dp = np.dot(Hessian_inv, ParamSum)
 
-
-    ### END CODE HERE ###
     return dp
 
 def subtract_dominant_motion(img1, img2):
@@ -83,30 +82,20 @@ def subtract_dominant_motion(img1, img2):
     return hyst
 
 if __name__ == "__main__":
-
-    im1 = Image.open('data/organized-0.jpg').convert("L")
-    im1_in = np.array(im1)
-
-    im2 = Image.open('data/organized-1.jpg').convert("L")
-    im2_in = np.array(im2)
-
-    print(im1_in.shape)
-
-    wim = lucas_kanade_affine(im1_in, im2_in, np.array([0.1, 0, 0, 0, 0.1, -0.2]), 0, 0)
-    # data_dir = 'data'
-    # video_path = 'motion.mp4'
-    # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    # out = cv2.VideoWriter(video_path, fourcc, 150/20, (636, 318))
-    # tmp_path = os.path.join(data_dir, "organized-{}.jpg".format(0))
-    # T = cv2.cvtColor(cv2.imread(tmp_path), cv2.COLOR_BGR2GRAY)
-    # for i in range(0, 50):
-    #     img_path = os.path.join(data_dir, "organized-{}.jpg".format(i))
-    #     I = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
-    #     clone = I.copy()
-    #     moving_img = subtract_dominant_motion(T, I)
-    #     clone = cv2.cvtColor(clone, cv2.COLOR_GRAY2BGR)
-    #     clone[moving_img, 2] = 522
-    #     out.write(clone)
-    #     T = I
-    # out.release()
+    data_dir = 'data'
+    video_path = 'motion.mp4'
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(video_path, fourcc, 150/20, (636, 318))
+    tmp_path = os.path.join(data_dir, "organized-{}.jpg".format(0))
+    T = cv2.cvtColor(cv2.imread(tmp_path), cv2.COLOR_BGR2GRAY)
+    for i in range(0, 50):
+        img_path = os.path.join(data_dir, "organized-{}.jpg".format(i))
+        I = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+        clone = I.copy()
+        moving_img = subtract_dominant_motion(T, I)
+        clone = cv2.cvtColor(clone, cv2.COLOR_GRAY2BGR)
+        clone[moving_img, 2] = 522
+        out.write(clone)
+        T = I
+    out.release()
     
