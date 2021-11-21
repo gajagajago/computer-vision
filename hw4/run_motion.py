@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 import math
 
 def lucas_kanade_affine(img1, img2, p, Gx, Gy):
-    ### START CODE HERE ###
     # Form affine matrix M
     p1, p2, p3, p4, p5, p6 = p
     M = np.array([[1+p1, p3, p5], [p2, 1+p4, p6]])  # (2,3) matrix
@@ -59,26 +58,59 @@ def lucas_kanade_affine(img1, img2, p, Gx, Gy):
             Hessian = Hessian + H
 
     Hessian_inv = np.linalg.inv(Hessian)
-    dp = np.dot(Hessian_inv, ParamSum)
+    dp = np.dot(Hessian_inv, ParamSum).reshape(6)
 
     return dp
 
 def subtract_dominant_motion(img1, img2):
     Gx = cv2.Sobel(I, cv2.CV_64F, 1, 0, ksize = 5) # do not modify this
     Gy = cv2.Sobel(I, cv2.CV_64F, 0, 1, ksize = 5) # do not modify this
-    
-    ### START CODE HERE ###
-    # [Caution] From now on, you can only use numpy and 
-    # RectBivariateSpline. Never use OpenCV.
-    moving_image = np.abs(img2 - img1) # you should delete this
-    
-    th_hi = 0.2 * 256 # you can modify this
-    th_lo = 0.15 * 256 # you can modify this
 
-    
-    ### END CODE HERE ###
+    p = np.zeros(6)
+
+    # M = np.array([[p1, p3, p5], [p2, p4, p6]]) # (2,3) matrix
+    dp = lucas_kanade_affine(img1, img2, p, Gx, Gy)
+    p += dp
+    p1, p2, p3, p4, p5, p6 = p
+    M = np.array([[1+p1, p3, p5], [p2, 1+p4, p6]])  # (2,3) matrix
+
+    # img1: I(t)
+    img1_h, img1_w = img1.shape
+
+    # Warping img1
+    img1_origin = np.array([0, 0, 1])
+    img1_end = np.array([img1_w-1, img1_h-1, 1])
+
+    warped_origin_x, warped_origin_y = np.dot(M, img1_origin)
+    warped_end_x, warped_end_y = np.dot(M, img1_end)
+
+    # Create meshgrid of the warped I(t)
+    warped_x_ls = np.linspace(warped_origin_x, warped_end_x, img1_w)
+    warped_y_ls = np.linspace(warped_origin_y, warped_end_y, img1_h)
+    warped_x_mg, warped_y_mg = np.meshgrid(warped_x_ls, warped_y_ls)
+
+    # RectBivariateSpline on img1
+    img1_x_ls = np.linspace(0, img1_w-1, img1_w)
+    img1_y_ls = np.linspace(0, img1_h-1, img1_h)
+    rect_B_spline = RectBivariateSpline(img1_x_ls, img1_y_ls, img1.T)
+
+    # I(W(x;p))
+    warped_img1 = rect_B_spline.ev(warped_x_mg, warped_y_mg)
+
+    # |I(t+1) - I(t)|
+    moving_image = np.abs(img2 - warped_img1)
+
+    th_hi = 0.2 * 256  # you can modify this
+    th_lo = 0.15 * 256  # you can modify this
 
     hyst = apply_hysteresis_threshold(moving_image, th_lo, th_hi)
+
+    # if hyst is not None:
+    #     plt.figure()
+    #     plt.imshow(hyst.astype(np.uint8))
+    #     plt.axis('off')
+    #     plt.show()
+
     return hyst
 
 if __name__ == "__main__":
@@ -97,5 +129,8 @@ if __name__ == "__main__":
         clone[moving_img, 2] = 522
         out.write(clone)
         T = I
+        print("Img ", i, " Complete")
+        # if i == 2:
+        #     break;
     out.release()
     
